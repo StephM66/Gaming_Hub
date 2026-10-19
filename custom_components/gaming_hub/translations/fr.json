@@ -1,0 +1,203 @@
+{
+  "config": {
+    "flow_title": "Switch {client_id}",
+    "step": {
+      "user": {
+        "title": "Ajouter une console",
+        "menu_options": {
+          "ps5": "PlayStation 5",
+          "ps3": "PlayStation 3 (webMAN MOD)",
+          "switch": "Nintendo Switch (Switch Assistant)",
+          "linked": "Xbox ou autre console déjà présente dans Home Assistant"
+        }
+      },
+      "ps5": {
+        "title": "PlayStation 5",
+        "description": "La console doit être allumée ou en mode repos. En mode repos, activer Paramètres > Système > Économie d'énergie > Fonctionnalités disponibles en mode repos > Rester connecté à Internet et Activer la mise sous tension de la PS5 depuis le réseau.",
+        "data": {
+          "host": "Adresse IP",
+          "name": "Nom"
+        }
+      },
+      "ps5_pairing": {
+        "title": "Allumage et extinction",
+        "description": "Allumer et éteindre la PS5 nécessite un appairage Lecture à distance (Remote Play). L'état fonctionne sans.",
+        "menu_options": {
+          "ps5_import": "Reprendre l'appairage de PS5-MQTT",
+          "ps5_register": "Appairer avec un code PIN",
+          "ps5_skip": "Plus tard (état seulement)"
+        }
+      },
+      "ps5_import": {
+        "title": "Reprendre l'appairage de PS5-MQTT",
+        "description": "Lit /config/ps5-mqtt/credentials.json. PS5-MQTT peut ensuite être désinstallé.",
+        "data": {
+          "passcode": "Code d'accès du compte PSN (seulement si la console en demande un)"
+        }
+      },
+      "ps5_register": {
+        "title": "Appairer avec un code PIN",
+        "description": "Sur la PS5 : Paramètres > Système > Lecture à distance > Associer un appareil, puis saisir le code à 8 chiffres affiché. L'identifiant de compte est l'identifiant PSN numérique (celui qu'utilise aussi l'intégration PlayStation Network).",
+        "data": {
+          "account_id": "Identifiant du compte PSN",
+          "pin": "Code PIN",
+          "passcode": "Code d'accès du compte PSN (seulement si la console en demande un)"
+        }
+      },
+      "ps3": {
+        "title": "PlayStation 3",
+        "description": "Nécessite webMAN MOD sur la console (CFW ou PS3HEN), console allumée. Une PS3 ne peut pas être allumée par le réseau : associer un script dans les options (HDMI-CEC, Bluetooth, pousse-bouton…).",
+        "data": {
+          "host": "Adresse IP",
+          "port": "Port de webMAN",
+          "name": "Nom"
+        }
+      },
+      "switch": {
+        "title": "Nintendo Switch",
+        "description": "Nécessite Switch Assistant sur la console (Atmosphère) et l'intégration MQTT. L'identifiant client est affiché dans l'application Switch Assistant.",
+        "data": {
+          "client_id": "Identifiant client",
+          "discovery_prefix": "Préfixe de découverte MQTT",
+          "name": "Nom"
+        }
+      },
+      "switch_confirm": {
+        "title": "Nintendo Switch détectée",
+        "description": "Le client Switch Assistant {client_id} publie sur MQTT. L'ajouter à Gaming Hub ?",
+        "data": {
+          "discovery_prefix": "Préfixe de découverte MQTT",
+          "name": "Nom"
+        }
+      },
+      "linked": {
+        "title": "Console déjà présente dans Home Assistant",
+        "description": "Gaming Hub suit une entité existante : le lecteur multimédia Xbox ou PlayStation 4, un lecteur PlayStation Network, le capteur de puissance d'une prise connectée…",
+        "data": {
+          "preset": "Type",
+          "source_entity": "Entité source",
+          "name": "Nom",
+          "on_threshold": "Allumée au-delà de (capteur de puissance uniquement)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "La console ne répond pas.",
+      "not_ps5": "Cette console n'est pas une PlayStation 5.",
+      "import_failed": "Aucun appairage utilisable pour cette console dans le fichier de PS5-MQTT.",
+      "invalid_pin": "Code PIN erroné ou expiré.",
+      "invalid_account": "Identifiant de compte PSN invalide.",
+      "not_in_pairing_mode": "La console n'affiche pas de code d'association.",
+      "in_use": "La Lecture à distance est déjà utilisée.",
+      "pairing_failed": "Échec de l'appairage."
+    },
+    "abort": {
+      "already_configured": "Cette console est déjà configurée.",
+      "mqtt_required": "Configurer d'abord l'intégration MQTT.",
+      "invalid_discovery": "Sujet MQTT inattendu.",
+      "reconfigure_unsupported": "Rien à reconfigurer pour cette console : la supprimer puis l'ajouter à nouveau.",
+      "reconfigure_successful": "Appairage mis à jour."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Liens et consommation",
+        "data": {
+          "power_entity": "Capteur de puissance (prise connectée)",
+          "now_playing_entity": "Source du jeu en cours",
+          "turn_on_entity": "Allumer avec",
+          "turn_off_entity": "Éteindre avec",
+          "block_entity": "Blocage parental avec",
+          "watts_playing": "Puissance estimée en jeu",
+          "watts_idle": "Puissance estimée allumée, sans jeu",
+          "watts_standby": "Puissance estimée en veille ou éteinte",
+          "image_template": "URL de la jaquette ({title_id})"
+        },
+        "data_description": {
+          "power_entity": "La puissance mesurée remplace l'estimation.",
+          "now_playing_entity": "Lecteur multimédia qui donne le jeu quand la console ne le fait pas, par exemple l'intégration PlayStation Network.",
+          "turn_on_entity": "Script, bouton ou interrupteur qui remplace la commande native (PS3 : HDMI-CEC, Bluetooth, pousse-bouton).",
+          "turn_off_entity": "Script, bouton ou interrupteur qui remplace la commande native.",
+          "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé, par exemple l'interrupteur de suspension de l'intégration Contrôle parental Nintendo Switch.",
+          "image_template": "Laisser vide pour ne pas afficher de jaquette."
+        }
+      }
+    }
+  },
+  "selector": {
+    "preset": {
+      "options": {
+        "xbox": "Xbox",
+        "ps4": "PlayStation 4",
+        "pc": "PC / Steam Deck",
+        "retro": "Console rétro",
+        "other": "Autre"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "playing": { "name": "En jeu" },
+      "charging": { "name": "En charge" }
+    },
+    "button": {
+      "restart": { "name": "Redémarrer" }
+    },
+    "notify": {
+      "message": { "name": "Message à l'écran" }
+    },
+    "number": {
+      "daily_limit": { "name": "Temps de jeu quotidien" },
+      "warning": { "name": "Préavis avant la limite" }
+    },
+    "select": {
+      "parental_action": {
+        "name": "Quand le temps de jeu est écoulé",
+        "state": {
+          "notify": "Prévenir seulement",
+          "turn_off": "Éteindre la console"
+        }
+      }
+    },
+    "sensor": {
+      "game": { "name": "Jeu en cours" },
+      "power": { "name": "Puissance" },
+      "energy": { "name": "Énergie" },
+      "playtime_today": { "name": "Temps de jeu aujourd'hui" },
+      "parental_status": {
+        "name": "Contrôle parental",
+        "state": {
+          "disabled": "Désactivé",
+          "allowed": "Autorisé",
+          "warning": "Bientôt écoulé",
+          "blocked": "Bloqué"
+        }
+      },
+      "parental_remaining": { "name": "Temps de jeu restant" },
+      "cpu_temperature": { "name": "Température CPU" },
+      "rsx_temperature": { "name": "Température RSX" },
+      "fan_speed": { "name": "Ventilateur" },
+      "firmware": { "name": "Firmware" },
+      "system_version": { "name": "Version du système" },
+      "battery": { "name": "Batterie" },
+      "battery_temperature": { "name": "Température de la batterie" },
+      "controllers": { "name": "Manettes" }
+    },
+    "switch": {
+      "parental_control": { "name": "Contrôle parental" }
+    },
+    "time": {
+      "allowed_from": { "name": "Jeu autorisé à partir de" },
+      "allowed_until": { "name": "Jeu autorisé jusqu'à" }
+    }
+  },
+  "exceptions": {
+    "unsupported": {
+      "message": "Cette console ne permet pas la commande {command}. Associer un script ou un interrupteur dans les options."
+    },
+    "command_failed": {
+      "message": "La console n'a pas accepté la commande : {reason}."
+    }
+  }
+}
