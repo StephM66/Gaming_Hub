@@ -31,6 +31,16 @@ _PROFILE_FIELDS = (
     "primaryOnlineStatus,presences(@default,@titleInfo,platform,lastOnlineDate)"
 )
 _TIMEOUT = aiohttp.ClientTimeout(total=20)
+_MAX_TEXT = 255
+
+
+def _text(value: Any) -> str | None:
+    return str(value)[:_MAX_TEXT] if value else None
+
+
+def _image(value: Any) -> str | None:
+    """Artwork URL, fetched later by Home Assistant: HTTPS only."""
+    return value if isinstance(value, str) and value.startswith("https://") else None
 
 
 class PsnError(Exception):
@@ -77,9 +87,9 @@ def parse_status(profile: dict[str, Any], presence: dict[str, Any] | None) -> Ps
         sessions[platform] = PsnSession(
             platform=platform,
             online=item.get("onlineStatus") not in (None, "offline"),
-            title=item.get("titleName") or None,
-            title_id=item.get("npTitleId") or None,
-            image=item.get("npTitleIconUrl") or None,
+            title=_text(item.get("titleName")),
+            title_id=_text(item.get("npTitleId")),
+            image=_image(item.get("npTitleIconUrl")),
         )
     # Current presence: PS5 (and PS4 when it is the primary platform).
     basic = (presence or {}).get("basicPresence") or {}
@@ -89,9 +99,9 @@ def parse_status(profile: dict[str, Any], presence: dict[str, Any] | None) -> Ps
         sessions[platform] = PsnSession(
             platform=platform,
             online=primary.get("onlineStatus") == "online",
-            title=game.get("titleName") or None,
-            title_id=game.get("npTitleId") or None,
-            image=game.get("conceptIconUrl") or game.get("npTitleIconUrl") or None,
+            title=_text(game.get("titleName")),
+            title_id=_text(game.get("npTitleId")),
+            image=_image(game.get("conceptIconUrl")) or _image(game.get("npTitleIconUrl")),
         )
     trophies = data.get("trophySummary") or {}
     avatars = sorted(
@@ -108,7 +118,7 @@ def parse_status(profile: dict[str, Any], presence: dict[str, Any] | None) -> Ps
         account_id=str(data.get("accountId", "")),
         online_id=str(data.get("onlineId", "")),
         online_status=str(data.get("primaryOnlineStatus") or "offline"),
-        avatar_url=avatars[0].get("avatarUrl") if avatars else None,
+        avatar_url=_image(avatars[0].get("avatarUrl")) if avatars else None,
         plus=bool(data.get("plus")),
         trophy_level=as_int(trophies.get("level")),
         trophy_progress=as_int(trophies.get("progress")),
@@ -249,9 +259,9 @@ class PsnClient:
     async def async_get_status(self) -> PsnStatus:
         """Profile, trophies and presence of the account (two requests)."""
         profile = await self._get(f"{self._legacy_base}/me/profile2", {"fields": _PROFILE_FIELDS})
-        account_id = (profile.get("profile") or {}).get("accountId")
+        account_id = str((profile.get("profile") or {}).get("accountId") or "")
         presence = None
-        if account_id:
+        if account_id.isdigit():
             presence = await self._get(
                 f"{self._api_base}/{account_id}/basicPresences", {"type": "primary"}
             )

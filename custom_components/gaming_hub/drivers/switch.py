@@ -100,8 +100,10 @@ class SwitchDriver(ConsoleDriver):
         }
         title_id = state.title_id
         image = None
-        if title_id and self._template:
-            image = self._template.format(title_id=title_id, title_id_lower=title_id.lower())
+        if title_id and self._template.startswith(("https://", "http://")):
+            image = self._template.replace("{title_id}", title_id).replace(
+                "{title_id_lower}", title_id.lower()
+            )
         return ConsoleSnapshot(
             PowerState.ON,
             in_game=state.game_running,
