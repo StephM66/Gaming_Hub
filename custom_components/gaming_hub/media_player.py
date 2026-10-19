@@ -39,10 +39,9 @@ class ConsoleMediaPlayer(GamingHubEntity, MediaPlayerEntity):
     @property
     def state(self) -> MediaPlayerState:
         snapshot = self.coordinator.data.snapshot
-        if snapshot.power is PowerState.OFF:
+        if snapshot.power is not PowerState.ON:
+            # Rest mode is "off" too (STANDBY is deprecated); power_state tells them apart.
             return MediaPlayerState.OFF
-        if snapshot.power is PowerState.STANDBY:
-            return MediaPlayerState.STANDBY
         return MediaPlayerState.PLAYING if snapshot.playing else MediaPlayerState.ON
 
     @property
@@ -82,7 +81,10 @@ class ConsoleMediaPlayer(GamingHubEntity, MediaPlayerEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"title_id": self.media_content_id}
+        return {
+            "title_id": self.media_content_id,
+            "power_state": self.coordinator.data.snapshot.power.value,
+        }
 
     async def async_turn_on(self) -> None:
         await self.coordinator.async_turn_on()

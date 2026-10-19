@@ -49,7 +49,7 @@ async def test_ps5(
     mock_ddp["status"].return_value = ddp_response(620, **{"system-version": "09400001"})
     await _setup(hass, ps5_entry)
     state = hass.states.get("media_player.ps5_salon")
-    assert state.state == "standby"
+    assert (state.state, state.attributes["power_state"]) == ("off", "standby")
     assert state.attributes["supported_features"] == 384  # TURN_ON | TURN_OFF
     assert hass.states.get("sensor.ps5_salon_system_version").state == "9.40"
     assert hass.states.get("sensor.ps5_salon_power").state == "1.5"  # estimated rest mode

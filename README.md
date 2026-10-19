@@ -231,7 +231,7 @@ Une prise connectée donne la vraie valeur ; les modèles et les jeux varient be
 
 | Entité | Remarque |
 |---|---|
-| `media_player` | état, jeu, jaquette, allumer/éteindre |
+| `media_player` | état, jeu, jaquette, allumer/éteindre ; en mode repos l'état est `off` et l'attribut `power_state` vaut `standby` |
 | Jeu en cours, En jeu | pour les automatisations et l'historique |
 | Puissance, Énergie | si un capteur est associé ou si une estimation existe |
 | Temps de jeu aujourd'hui, Temps de jeu restant, Contrôle parental | |
