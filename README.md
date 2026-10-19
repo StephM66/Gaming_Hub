@@ -5,39 +5,55 @@
 Intégration Home Assistant qui réunit les consoles de salon dans un seul hub : allumage et
 extinction, jeu en cours (titre et jaquette), contrôle parental commun, consommation électrique.
 
-Une seule intégration, pas d'App (add-on), pas de dépendance Python externe. Chaque console est
-une entrée de configuration et un appareil. Le hub parle directement aux consoles quand c'est
-possible. Sinon, il reprend une entité déjà présente dans Home Assistant (Xbox, PS4,
-PlayStation Network, prise connectée…).
+## Une seule chose à installer
 
-> **État : 0.1.0, à valider sur console.** Les protocoles sont testés contre des consoles
-> simulées et, pour la PS5, octet par octet contre playactor (le moteur de PS5-MQTT). Aucun
-> essai n'a encore été fait sur une vraie console : voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
+Dans Home Assistant, **Gaming Hub suffit**. Il remplace PS5-MQTT (App) et l'intégration PS3, et
+intègre lui-même le compte PlayStation Network. Pas d'App, pas d'autre intégration, pas de
+dépendance Python externe. Chaque console est un appareil du hub.
+
+| | Dans Home Assistant | Sur la console |
+|---|---|---|
+| PlayStation 5 | Gaming Hub | rien (Lecture à distance activée dans les paramètres) |
+| PlayStation 3 | Gaming Hub | webMAN MOD (CFW ou PS3HEN) |
+| Nintendo Switch | Gaming Hub + un broker MQTT (l'App Mosquitto) | Switch Assistant (Atmosphère) |
+| Xbox et autres (facultatif) | Gaming Hub + l'intégration de la console | — |
+
+Ce qui reste est imposé par les consoles, pas par le hub :
+
+- une PS3 d'origine ne dialogue pas sur le réseau : webMAN MOD est ce qui lui donne une interface ;
+- une Switch d'origine non plus : Switch Assistant tourne sur la console et ne parle que MQTT,
+  d'où le broker (Mosquitto, l'App standard de Home Assistant) ;
+- pour la Xbox, que je n'ai pas pu tester faute de console, le hub s'appuie sur une entité
+  existante (intégration Xbox officielle) en attendant un pilote natif.
+
+> **État : 0.2.0, à valider sur console.** Les protocoles sont testés contre des consoles et des
+> serveurs simulés et, pour la PS5, octet par octet contre playactor (le moteur de PS5-MQTT).
+> Aucun essai n'a encore été fait sur une vraie console : voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
 
 ## Ce que fait chaque console
 
 | | PlayStation 5 | PlayStation 3 | Nintendo Switch | Xbox et autres |
 |---|---|---|---|---|
-| Prérequis | Lecture à distance activée | webMAN MOD (CFW ou PS3HEN) | Switch Assistant (Atmosphère) + MQTT | une entité HA (Xbox, PS4, prise…) |
-| Liaison | réseau local (DDP, Remote Play) | HTTP local | MQTT | entité source |
+| Liaison | réseau local (DDP, Remote Play) + compte PSN | HTTP local (+ compte PSN) | MQTT | entité source |
 | État éteinte / veille / allumée / en jeu | ✅ | ✅ (pas de veille) | ✅ | ✅ |
 | Allumer | ✅ par le réseau | script¹ | script¹ | ✅ si la source le permet |
 | Éteindre | ✅ mode repos | ✅ | ✅ extinction complète | ✅ si la source le permet |
-| Jeu en cours et jaquette | via l'intégration PlayStation Network² | ✅ titre et icône | ✅ titre, jaquette³ | ✅ |
+| Jeu en cours et jaquette | ✅ via le compte PSN² | ✅ titre et icône | ✅ titre, jaquette³ | ✅ |
+| Image de l'écran en direct | — | — | ✅ caméra (en jeu) | — |
 | Message à l'écran | — | ✅ | ✅ | — |
-| Redémarrer | — | ✅ | ✅ | — |
-| Capteurs propres | version du système | CPU, RSX, ventilateur, firmware | batterie, charge, manettes | — |
+| Boutons | — | redémarrer, quitter le jeu | redémarrer | — |
+| Données de la console | version du système | températures CPU/RSX, ventilateur (vitesse, mode, cible), durée de la partie, mémoire et disque libres, allumée depuis, firmware, réseau, utilisation totale, démarrages | batterie (niveau, santé, température, tension), charge, chargeur, écran, luminosité, volume, sortie audio, manettes par joueur | — |
+| Compte PlayStation Network² | statut, niveau et nombre de trophées, PlayStation Plus | idem | — | idem (PS4) |
 | Contrôle parental du hub | ✅ | ✅ | ✅ (+ suspension Nintendo⁴) | ✅ |
 | Consommation | mesurée ou estimée | mesurée ou estimée | mesurée ou estimée | mesurée ou estimée |
 
 1. Une PS3 et une Switch ne s'allument pas par le réseau. On associe un script, un bouton ou un
    interrupteur dans les options : HDMI-CEC via la TV, Bluetooth, pousse-bouton (SwitchBot…).
-2. La PS5 ne publie pas le jeu en cours sur le réseau local. L'intégration officielle
-   [PlayStation Network](https://www.home-assistant.io/integrations/playstation_network/) le
-   fournit, et le hub le reprend (option « Source du jeu en cours »).
+2. La PS5 ne publie pas le jeu en cours sur le réseau local. Le hub le lit sur le compte
+   PlayStation Network, comme PS5-MQTT, sans autre intégration (étape facultative à l'ajout).
 3. Jaquette par identifiant de titre, depuis un service tiers (`tinfoil.media`), modifiable ou
    désactivable dans les options.
-4. Avec l'intégration officielle
+4. Facultatif : avec l'intégration officielle
    [Contrôle parental Nintendo Switch](https://www.home-assistant.io/integrations/nintendo_parental_controls/),
    le hub peut activer la suspension du jeu au lieu d'éteindre la console (option « Blocage parental avec »).
 
@@ -69,26 +85,32 @@ Sur la PS5 :
   **Rester connecté à Internet** et **Activer la mise sous tension de la PS5 depuis le réseau**.
 
 Dans Gaming Hub, l'adresse de la console est proposée si elle répond sur le réseau. Le hub
-demande ensuite comment obtenir l'appairage nécessaire pour allumer et éteindre :
+propose ensuite le **compte PlayStation Network** (facultatif) : il donne le jeu en cours avec sa
+jaquette, le statut en ligne, les trophées et PlayStation Plus. Se connecter sur
+[playstation.com](https://www.playstation.com), ouvrir
+<https://ca.account.sony.com/api/v1/ssocookie> et copier la valeur de `npsso`. Ce jeton dure
+environ deux mois ; à son expiration, Home Assistant demande le nouveau (la console continue de
+fonctionner en attendant).
+
+Il demande enfin comment obtenir l'appairage nécessaire pour allumer et éteindre :
 
 - **Reprendre l'appairage de PS5-MQTT** : proposé quand `/config/ps5-mqtt/credentials.json`
   existe. Rien à refaire sur la console, et PS5-MQTT peut ensuite être désinstallé.
 - **Appairer avec un code PIN** : sur la PS5, Paramètres → Système → Lecture à distance →
-  Associer un appareil. Saisir le code à 8 chiffres et l'identifiant numérique du compte PSN.
-  Si l'intégration PlayStation Network est configurée, l'identifiant est prérempli.
-- **Plus tard** : état seulement. L'appairage se fait ensuite par « Reconfigurer ».
+  Associer un appareil. Saisir le code à 8 chiffres ; l'identifiant du compte PSN est prérempli
+  si le compte a été associé juste avant (sinon, le saisir).
+- **Plus tard** : état seulement. L'appairage, comme le compte PSN, se fait ensuite par
+  « Reconfigurer ».
 
 Si le compte PSN demande un code d'accès à la connexion sur la console, le renseigner : la mise
 en veille passe par une connexion Lecture à distance.
 
-Pour le jeu en cours et la jaquette, configurer l'intégration PlayStation Network, puis choisir
-son lecteur « PlayStation 5 » comme « Source du jeu en cours » dans les options du hub.
-
 ### PlayStation 3
 
 Console avec webMAN MOD, allumée au moment de l'ajout. Saisir son adresse IP (port 80 par
-défaut). Pour l'allumage, associer un script dans les options : la TV en HDMI-CEC
-(« Contrôle par HDMI » activé sur la PS3), une manette Bluetooth émulée, ou un pousse-bouton.
+défaut), puis, si on le souhaite, le compte PlayStation Network (statut, trophées). Pour
+l'allumage, associer un script dans les options : la TV en HDMI-CEC (« Contrôle par HDMI »
+activé sur la PS3), une manette Bluetooth émulée, ou un pousse-bouton.
 
 ### Nintendo Switch
 
@@ -99,6 +121,7 @@ client affiché dans l'application Switch Assistant.
 
 - La commande d'extinction de Switch Assistant est commune à toutes les Switch du même broker.
 - Une Switch en veille ne publie plus : le hub la voit éteinte 45 s après le dernier signal.
+- La caméra « Écran » montre l'écran en direct pendant les jeux (flux RTSP de Switch Assistant).
 
 ### Xbox et autres consoles
 
@@ -106,8 +129,9 @@ client affiché dans l'application Switch Assistant.
 PlayStation 4, PC / Steam Deck, console rétro, autre) et l'entité source :
 
 - un **lecteur multimédia** : intégration [Xbox](https://www.home-assistant.io/integrations/xbox/),
-  [PlayStation 4](https://www.home-assistant.io/integrations/ps4/), PlayStation Network,
-  Android TV… Le hub reprend l'état, le jeu, la jaquette et l'allumage/extinction ;
+  [PlayStation 4](https://www.home-assistant.io/integrations/ps4/), Android TV… Le hub reprend
+  l'état, le jeu, la jaquette et l'allumage/extinction. Pour une PS4, le compte PlayStation
+  Network peut être associé comme pour la PS5 ;
 - un **interrupteur**, un capteur binaire, un `input_boolean` ou un `device_tracker` : allumée ou éteinte ;
 - un **capteur de puissance** : allumée au-delà d'un seuil, pratique pour une console rétro sur prise connectée.
 
@@ -118,7 +142,6 @@ Le type ne sert qu'au fabricant affiché et aux puissances estimées par défaut
 | Option | Usage |
 |---|---|
 | Capteur de puissance | Puissance mesurée (prise connectée), qui remplace l'estimation. |
-| Source du jeu en cours | Lecteur multimédia qui fournit le jeu quand la console ne le fait pas (PlayStation Network). |
 | Allumer avec / Éteindre avec | Script, scène, bouton ou interrupteur qui remplace la commande native. |
 | Blocage parental avec | Activé à la place de l'extinction quand le temps de jeu est écoulé. |
 | Puissances estimées | En jeu, allumée sans jeu, en veille ou éteinte (W). Valeurs indicatives par défaut. |
@@ -188,14 +211,17 @@ Une prise connectée donne la vraie valeur ; les modèles et les jeux varient be
 | Temps de jeu aujourd'hui, Temps de jeu restant, Contrôle parental | |
 | Contrôle parental, Temps de jeu quotidien, Préavis, plage horaire, action | réglages (catégorie configuration) |
 | Message à l'écran, Redémarrer | PS3 et Switch |
-| Capteurs propres | PS3 : températures, ventilateur, firmware ; Switch : batterie, charge, manettes ; PS5 : version |
+| Quitter le jeu | PS3 |
+| Écran (caméra) | Switch, pendant les jeux |
+| Données de la console | voir le tableau « Ce que fait chaque console » ; les diagnostics rarement utiles (adresse IP, utilisation totale, démarrages, tension batterie) sont créés désactivés |
+| PlayStation Network, Niveau de trophées, PlayStation Plus | si le compte PSN est associé (PS5, PS3, PS4) |
 
 ## Architecture
 
 ```text
 custom_components/gaming_hub/
-  protocols/   protocoles sans Home Assistant : ddp (PS5), remoteplay (PS5), webman (PS3),
-               switch_assistant (Switch)
+  protocols/   protocoles sans Home Assistant : ddp (PS5), remoteplay (PS5), psn (compte
+               PlayStation Network), webman (PS3), switch_assistant (Switch)
   drivers/     un pilote par type : ps5, ps3, switch, linked (Xbox et autres)
   coordinator  état du pilote + entités liées + temps de jeu, énergie, contrôle parental
   parental     règles du contrôle parental (pures, testées sans Home Assistant)
@@ -217,6 +243,7 @@ python3.13 -m venv .venv && .venv/bin/pip install -r requirements_test.txt
 
 - `tests/test_protocol_ps5.py` : chiffrement et messages comparés à des vecteurs produits par
   playactor (`tools/remoteplay_vectors.js`), puis séquences complètes contre une PS5 simulée.
+- `tests/test_protocol_psn.py` : compte PlayStation Network contre une API Sony simulée (jeton NPSSO, renouvellement, présence, trophées).
 - `tests/test_protocol_ps3_switch.py` : page webMAN reconstituée depuis le source de webMAN MOD, sujets Switch Assistant.
 - `tests/test_logic.py` : contrôle parental, temps de jeu, énergie.
 - `tests/test_config_flow.py`, `tests/test_entities.py` : intégration dans un vrai Home Assistant (MQTT simulé).

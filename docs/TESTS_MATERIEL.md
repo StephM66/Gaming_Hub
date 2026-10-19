@@ -24,8 +24,11 @@ logger:
 | 5 | Allumer depuis le mode repos | PS5 allumée en moins de 30 s |
 | 6 | Éteindre (mode repos) | PS5 en mode repos ; pas d'erreur `command_failed` |
 | 7 | Éteindre avec un compte protégé par code d'accès | sans code : erreur `passcode_required` ; avec code : OK |
-| 8 | Jeu en cours via PlayStation Network | titre et jaquette sur le `media_player` du hub |
-| 9 | Version du système | capteur au format `x.yy` (sinon, noter la valeur brute) |
+| 8 | Compte PSN (jeton NPSSO) à l'ajout | entrée créée ; identifiant de compte prérempli pour le PIN |
+| 9 | Jeu en cours via le compte PSN | titre et jaquette sur le `media_player` du hub, moins d'une minute après le lancement |
+| 10 | Trophées, PlayStation Plus, statut PSN | valeurs cohérentes avec l'application PlayStation |
+| 11 | Jeton NPSSO invalidé (déconnexion de playstation.com) | notification de ré-authentification ; la console reste pilotable |
+| 12 | Version du système | capteur au format `x.yy` (sinon, noter la valeur brute) |
 
 Point sensible : la mise en veille (essais 6 et 7) passe par le portage Python du canal de
 contrôle Remote Play. Il est vérifié octet par octet contre playactor, mais pas encore face à
@@ -43,6 +46,9 @@ une vraie console. En cas d'échec, joindre le journal `debug` et, si possible, 
 | 5 | Message à l'écran | notification affichée sur la TV |
 | 6 | Redémarrer / Éteindre | console redémarrée / éteinte, puis `off` |
 | 7 | Allumage par script (HDMI-CEC ou autre) | console allumée, puis `on` |
+| 8 | Quitter le jeu | retour au XMB, bouton indisponible ensuite |
+| 9 | Mode du ventilateur (SYSCON, dynamique, manuel) | capteur cohérent avec le réglage webMAN |
+| 10 | Mémoire, disque, allumée depuis, durée de la partie | valeurs cohérentes avec la page webMAN |
 
 Pour fiabiliser l'analyse de la page webMAN, capturer deux pages réelles et les joindre (elles
 remplaceront les pages reconstituées de `tests/fixtures/`) :
@@ -63,6 +69,8 @@ curl -s http://IP_PS3/cpursx.ps3 -o cpursx_jeu.html      # en jeu
 | 5 | Message à l'écran | popup affichée par la surcouche |
 | 6 | Redémarrer / Éteindre | commande exécutée |
 | 7 | Batterie, charge, manettes | valeurs cohérentes avec la console |
+| 8 | Caméra « Écran » pendant un jeu | image en direct (le flux RTSP n'existe qu'en jeu) |
+| 9 | Luminosité, volume, sortie audio, écran allumé | valeurs cohérentes avec la console |
 
 ## Contrôle parental et consommation (une console suffit)
 

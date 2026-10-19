@@ -27,6 +27,12 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
+## psn-api
+
+Les adresses et paramètres d'authentification du PlayStation Network
+(`custom_components/gaming_hub/protocols/psn.py`) suivent
+[psn-api](https://github.com/achievements-app/psn-api) (MIT), utilisé aussi par PS5-MQTT.
+
 ## Projets étudiés, sans code repris
 
 - [ps5-mqtt](https://github.com/FunkeyFlo/ps5-mqtt) (MIT) : emplacement et format du fichier

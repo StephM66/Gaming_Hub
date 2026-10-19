@@ -21,6 +21,11 @@ PLATFORMS = [
 ]
 
 
+def _platforms(coordinator: GamingHubCoordinator) -> list[Platform]:
+    # The camera platform (and its image libraries) only loads for a console with a screen feed.
+    return [*PLATFORMS, Platform.CAMERA] if coordinator.driver.has_screen else PLATFORMS
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) -> bool:
     coordinator = GamingHubCoordinator(hass, entry, create_driver(hass, entry))
     await coordinator.async_start()
@@ -30,13 +35,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) ->
         await coordinator.driver.async_stop()
         raise
     entry.runtime_data = coordinator
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await hass.config_entries.async_forward_entry_setups(entry, _platforms(coordinator))
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) -> bool:
-    if unloaded := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+    platforms = _platforms(entry.runtime_data)
+    if unloaded := await hass.config_entries.async_unload_platforms(entry, platforms):
         await entry.runtime_data.async_stop()
     return unloaded
 

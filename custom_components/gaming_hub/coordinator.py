@@ -4,18 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import hashlib
 import logging
+import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    ATTR_ENTITY_ID,
-    ATTR_UNIT_OF_MEASUREMENT,
-    STATE_PLAYING,
-    UnitOfPower,
-)
+from homeassistant.const import ATTR_ENTITY_ID, ATTR_UNIT_OF_MEASUREMENT, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
@@ -25,7 +23,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_BLOCK_ENTITY,
     CONF_KIND,
-    CONF_NOW_PLAYING_ENTITY,
+    CONF_NPSSO,
     CONF_POWER_ENTITY,
     CONF_PRESET,
     CONF_TURN_OFF_ENTITY,
@@ -44,7 +42,6 @@ from .const import (
 )
 from .drivers import ConsoleDriver
 from .drivers.base import unsupported
-from .drivers.linked import media_from_state
 from .models import ConsoleSnapshot, PowerProfile
 from .parental import (
     BlockReason,
@@ -53,11 +50,16 @@ from .parental import (
     ParentalDecision,
     ParentalSettings,
 )
+from .protocols.psn import PsnAuthError, PsnClient, PsnError, PsnStatus
 from .usage import UsageTracker
 
 _LOGGER = logging.getLogger(__name__)
 # Usage is written at most this often (and when the entry unloads or Home Assistant stops).
 SAVE_INTERVAL = timedelta(minutes=5)
+# PlayStation Network polling: the game changes often, trophies and status slowly.
+PSN_INTERVAL_ON = 60
+PSN_INTERVAL_OFF = 15 * 60
+PSN_SENSORS = ("psn_status", "trophy_level")
 
 type GamingHubConfigEntry = ConfigEntry[GamingHubCoordinator]
 
@@ -76,6 +78,14 @@ def profile_key(data: dict[str, Any]) -> str:
     """Key of POWER_PROFILES / DEVICE_INFO for an entry."""
     kind = ConsoleKind(data[CONF_KIND])
     return data.get(CONF_PRESET, LinkedPreset.OTHER) if kind is ConsoleKind.LINKED else kind
+
+
+# PlayStation Network platform matching each console.
+PSN_PLATFORMS = {ConsoleKind.PS5: "PS5", ConsoleKind.PS3: "PS3", LinkedPreset.PS4: "PS4"}
+
+
+def _npsso_hash(npsso: str) -> str:
+    return hashlib.sha256(npsso.encode()).hexdigest()[:16]
 
 
 class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
@@ -108,6 +118,21 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}"
         )
         self._next_save: datetime | None = None
+        self.psn: PsnClient | None = None
+        self.psn_status: PsnStatus | None = None
+        self.psn_platform = PSN_PLATFORMS.get(key)
+        self._psn_next = 0.0
+        self._psn_was_on = False
+        self._psn_reauth = False
+
+    @property
+    def sensor_keys(self) -> tuple[str, ...]:
+        """Console-specific sensors (driver values, PlayStation Network account)."""
+        return self.driver.sensors + (PSN_SENSORS if self.psn else ())
+
+    @property
+    def binary_sensor_keys(self) -> tuple[str, ...]:
+        return self.driver.binary_sensors + (("ps_plus",) if self.psn else ())
 
     # --- Lifecycle ----------------------------------------------------------
 
@@ -116,6 +141,10 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         stored = await self._store.async_load() or {}
         self.usage = UsageTracker.from_dict(stored.get("usage"))
         self.parental.settings = ParentalSettings.from_dict(stored.get("parental"))
+        if npsso := self.config_entry.data.get(CONF_NPSSO):
+            psn = stored.get("psn") or {}
+            tokens = psn.get("tokens") if psn.get("npsso") == _npsso_hash(npsso) else None
+            self.psn = PsnClient(async_get_clientsession(self.hass), npsso, tokens)
 
         @callback
         def on_change(*_: Any) -> None:
@@ -124,14 +153,9 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             )
 
         await self.driver.async_start(on_change)
-        linked = [
-            entity
-            for key in (CONF_POWER_ENTITY, CONF_NOW_PLAYING_ENTITY)
-            if (entity := self.options.get(key))
-        ]
-        if linked:
+        if power_entity := self.options.get(CONF_POWER_ENTITY):
             self.config_entry.async_on_unload(
-                async_track_state_change_event(self.hass, linked, on_change)
+                async_track_state_change_event(self.hass, [power_entity], on_change)
             )
 
     async def async_stop(self) -> None:
@@ -139,7 +163,11 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         await self._store.async_save(self._stored())
 
     def _stored(self) -> dict[str, Any]:
-        return {"usage": self.usage.as_dict(), "parental": self.parental.settings.as_dict()}
+        data = {"usage": self.usage.as_dict(), "parental": self.parental.settings.as_dict()}
+        if self.psn:
+            npsso = self.config_entry.data[CONF_NPSSO]
+            data["psn"] = {"npsso": _npsso_hash(npsso), "tokens": self.psn.tokens}
+        return data
 
     def _schedule_save(self, now: datetime, *, soon: bool = False) -> None:
         # async_delay_save restarts its timer on each call: throttle the calls.
@@ -158,9 +186,10 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             snapshot = await self.driver.async_fetch()
         except Exception as err:  # drivers report an unreachable console as off
             raise UpdateFailed(f"{type(err).__name__}: {err}") from err
-        self._merge_now_playing(snapshot)
-        power, measured = self._power(snapshot)
         now = dt_util.now()
+        await self._async_update_psn(snapshot.is_on, now)
+        self._merge_psn(snapshot)
+        power, measured = self._power(snapshot)
         self.usage.update(now, snapshot.is_on, power)
         decision = self.parental.evaluate(now, snapshot.is_on, self.usage.playtime)
         self._schedule_save(now)
@@ -177,21 +206,51 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             parental=decision,
         )
 
-    def _merge_now_playing(self, snapshot: ConsoleSnapshot) -> None:
-        """Take the game from a linked media player (e.g. PlayStation Network)."""
-        entity = self.options.get(CONF_NOW_PLAYING_ENTITY)
-        if not entity or not snapshot.is_on or snapshot.title:
+    async def _async_update_psn(self, console_on: bool, now: datetime) -> None:
+        """Poll the PlayStation Network account, more often while the console is on."""
+        if self.psn is None or self._psn_reauth:
             return
-        state = self.hass.states.get(entity)
-        if state is None or state.state != STATE_PLAYING:
+        just_on = console_on and not self._psn_was_on
+        self._psn_was_on = console_on
+        if not just_on and time.monotonic() < self._psn_next:
             return
-        title, title_id, image, picture = media_from_state(state)
-        if title:
+        self._psn_next = time.monotonic() + (PSN_INTERVAL_ON if console_on else PSN_INTERVAL_OFF)
+        try:
+            self.psn_status = await self.psn.async_get_status()
+        except PsnAuthError:
+            # Keep the console working; ask for a new NPSSO token.
+            self._psn_reauth = True
+            self.psn_status = None
+            self.config_entry.async_start_reauth(self.hass)
+        except PsnError as err:
+            _LOGGER.debug("PlayStation Network unavailable: %s", err)
+        except Exception:
+            # The account is a bonus: an unexpected answer must not take the console down.
+            _LOGGER.exception("Unexpected PlayStation Network answer")
+        if self.psn.tokens_changed:
+            self.psn.tokens_changed = False
+            self._schedule_save(now, soon=True)
+
+    def _merge_psn(self, snapshot: ConsoleSnapshot) -> None:
+        """Account data, and the current game when the console does not report it."""
+        status = self.psn_status
+        if status is None:
+            return
+        snapshot.attributes |= {
+            "psn_status": status.online_status,
+            "psn_online_id": status.online_id,
+            "psn_avatar": status.avatar_url,
+            "trophy_level": status.trophy_level,
+            "trophy_progress": status.trophy_progress,
+            "trophies": status.trophies,
+            "ps_plus": status.plus,
+        }
+        session = status.sessions.get(self.psn_platform or "")
+        if snapshot.is_on and not snapshot.title and session and session.online and session.title:
             snapshot.in_game = True
-            snapshot.title = title
-            snapshot.title_id = snapshot.title_id or title_id
-            snapshot.image_url = snapshot.image_url or image
-            snapshot.entity_picture = None if snapshot.image_url else picture
+            snapshot.title = session.title
+            snapshot.title_id = snapshot.title_id or session.title_id
+            snapshot.image_url = snapshot.image_url or session.image
 
     def _power(self, snapshot: ConsoleSnapshot) -> tuple[float | None, bool]:
         if (entity := self.options.get(CONF_POWER_ENTITY)) and (
@@ -247,8 +306,12 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             raise unsupported("turn_off")
         await self.async_request_refresh()
 
-    async def async_restart(self) -> None:
-        await self.driver.async_restart()
+    async def async_press(self, button: str) -> None:
+        """Restart or quit the game (see ``ConsoleDriver.buttons``)."""
+        if button == "restart":
+            await self.driver.async_restart()
+        else:
+            await self.driver.async_quit_game()
         await self.async_request_refresh()
 
     async def async_notify(self, message: str, title: str | None = None) -> None:
