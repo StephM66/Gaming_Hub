@@ -1,0 +1,203 @@
+{
+  "config": {
+    "flow_title": "Switch {client_id}",
+    "step": {
+      "user": {
+        "title": "Add a console",
+        "menu_options": {
+          "ps5": "PlayStation 5",
+          "ps3": "PlayStation 3 (webMAN MOD)",
+          "switch": "Nintendo Switch (Switch Assistant)",
+          "linked": "Xbox or another console already in Home Assistant"
+        }
+      },
+      "ps5": {
+        "title": "PlayStation 5",
+        "description": "The console must be on or in rest mode. In rest mode, enable Settings > System > Power Saving > Features Available in Rest Mode > Stay Connected to the Internet and Enable Turning On PS5 from Network.",
+        "data": {
+          "host": "IP address",
+          "name": "Name"
+        }
+      },
+      "ps5_pairing": {
+        "title": "Power control",
+        "description": "Turning the PS5 on and off needs a Remote Play pairing. Status works without it.",
+        "menu_options": {
+          "ps5_import": "Reuse the PS5-MQTT pairing",
+          "ps5_register": "Pair with a PIN",
+          "ps5_skip": "Later (status only)"
+        }
+      },
+      "ps5_import": {
+        "title": "Reuse the PS5-MQTT pairing",
+        "description": "Reads /config/ps5-mqtt/credentials.json. PS5-MQTT can be uninstalled afterwards.",
+        "data": {
+          "passcode": "PSN login passcode (only if the console asks for one)"
+        }
+      },
+      "ps5_register": {
+        "title": "Pair with a PIN",
+        "description": "On the PS5: Settings > System > Remote Play > Link Device, then enter the 8-digit PIN shown. The account ID is the numeric PSN ID (also used by the PlayStation Network integration).",
+        "data": {
+          "account_id": "PSN account ID",
+          "pin": "PIN",
+          "passcode": "PSN login passcode (only if the console asks for one)"
+        }
+      },
+      "ps3": {
+        "title": "PlayStation 3",
+        "description": "Requires a console running webMAN MOD (CFW or PS3HEN) and turned on. A PS3 cannot be powered on over the network: link a script in the options (HDMI-CEC, Bluetooth, button pusher…).",
+        "data": {
+          "host": "IP address",
+          "port": "webMAN port",
+          "name": "Name"
+        }
+      },
+      "switch": {
+        "title": "Nintendo Switch",
+        "description": "Requires Switch Assistant on the console (Atmosphère) and the MQTT integration. The client ID is shown in the Switch Assistant app.",
+        "data": {
+          "client_id": "Client ID",
+          "discovery_prefix": "MQTT discovery prefix",
+          "name": "Name"
+        }
+      },
+      "switch_confirm": {
+        "title": "Nintendo Switch found",
+        "description": "Switch Assistant client {client_id} publishes on MQTT. Add it to Gaming Hub?",
+        "data": {
+          "discovery_prefix": "MQTT discovery prefix",
+          "name": "Name"
+        }
+      },
+      "linked": {
+        "title": "Console already in Home Assistant",
+        "description": "Gaming Hub follows an existing entity: the Xbox or PlayStation 4 media player, a PlayStation Network media player, a smart plug power sensor…",
+        "data": {
+          "preset": "Type",
+          "source_entity": "Source entity",
+          "name": "Name",
+          "on_threshold": "On above (power sensor only)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The console does not answer.",
+      "not_ps5": "This console is not a PlayStation 5.",
+      "import_failed": "No usable pairing for this console in the PS5-MQTT file.",
+      "invalid_pin": "Wrong or expired PIN.",
+      "invalid_account": "Invalid PSN account ID.",
+      "not_in_pairing_mode": "The console is not showing a pairing PIN.",
+      "in_use": "Remote Play is already in use.",
+      "pairing_failed": "Pairing failed."
+    },
+    "abort": {
+      "already_configured": "This console is already configured.",
+      "mqtt_required": "Set up the MQTT integration first.",
+      "invalid_discovery": "Unexpected MQTT topic.",
+      "reconfigure_unsupported": "Nothing to reconfigure for this console: remove it and add it again.",
+      "reconfigure_successful": "Pairing updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Links and consumption",
+        "data": {
+          "power_entity": "Power sensor (smart plug)",
+          "now_playing_entity": "Current game source",
+          "turn_on_entity": "Turn on with",
+          "turn_off_entity": "Turn off with",
+          "block_entity": "Parental block with",
+          "watts_playing": "Estimated power while playing",
+          "watts_idle": "Estimated power on, without a game",
+          "watts_standby": "Estimated power in standby or off",
+          "image_template": "Artwork URL ({title_id})"
+        },
+        "data_description": {
+          "power_entity": "Measured power replaces the estimate.",
+          "now_playing_entity": "Media player giving the game when the console does not, e.g. the PlayStation Network integration.",
+          "turn_on_entity": "Script, button or switch replacing the native command (PS3: HDMI-CEC, Bluetooth, button pusher).",
+          "turn_off_entity": "Script, button or switch replacing the native command.",
+          "block_entity": "Activated instead of turning the console off when play time is over, e.g. the Nintendo Switch Parental Controls suspend switch.",
+          "image_template": "Leave empty to disable artwork."
+        }
+      }
+    }
+  },
+  "selector": {
+    "preset": {
+      "options": {
+        "xbox": "Xbox",
+        "ps4": "PlayStation 4",
+        "pc": "PC / Steam Deck",
+        "retro": "Retro console",
+        "other": "Other"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "playing": { "name": "Playing" },
+      "charging": { "name": "Charging" }
+    },
+    "button": {
+      "restart": { "name": "Restart" }
+    },
+    "notify": {
+      "message": { "name": "On-screen message" }
+    },
+    "number": {
+      "daily_limit": { "name": "Daily play time" },
+      "warning": { "name": "Warning before limit" }
+    },
+    "select": {
+      "parental_action": {
+        "name": "When play time is over",
+        "state": {
+          "notify": "Notify only",
+          "turn_off": "Turn the console off"
+        }
+      }
+    },
+    "sensor": {
+      "game": { "name": "Current game" },
+      "power": { "name": "Power" },
+      "energy": { "name": "Energy" },
+      "playtime_today": { "name": "Play time today" },
+      "parental_status": {
+        "name": "Parental control",
+        "state": {
+          "disabled": "Disabled",
+          "allowed": "Allowed",
+          "warning": "Almost over",
+          "blocked": "Blocked"
+        }
+      },
+      "parental_remaining": { "name": "Play time left" },
+      "cpu_temperature": { "name": "CPU temperature" },
+      "rsx_temperature": { "name": "RSX temperature" },
+      "fan_speed": { "name": "Fan speed" },
+      "firmware": { "name": "Firmware" },
+      "system_version": { "name": "System version" },
+      "battery": { "name": "Battery" },
+      "battery_temperature": { "name": "Battery temperature" },
+      "controllers": { "name": "Controllers" }
+    },
+    "switch": {
+      "parental_control": { "name": "Parental control" }
+    },
+    "time": {
+      "allowed_from": { "name": "Play allowed from" },
+      "allowed_until": { "name": "Play allowed until" }
+    }
+  },
+  "exceptions": {
+    "unsupported": {
+      "message": "This console does not support {command}. Link a script or switch in the options."
+    },
+    "command_failed": {
+      "message": "The console did not accept the command: {reason}."
+    }
+  }
+}
