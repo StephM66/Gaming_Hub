@@ -2,7 +2,7 @@
 
 Les tests automatiques couvrent les protocoles (consoles simulées), la logique et l'intégration
 dans Home Assistant. Restent à valider sur du vrai matériel les points marqués ci-dessous.
-Consoles disponibles : PS5, PS3, Switch première génération.
+Consoles disponibles : PS5, PS3, Switch première génération, aucune modifiée.
 
 Activer les journaux détaillés pendant les essais :
 
@@ -71,6 +71,35 @@ curl -s http://IP_PS3/cpursx.ps3 -o cpursx_jeu.html      # en jeu
 | 7 | Batterie, charge, manettes | valeurs cohérentes avec la console |
 | 8 | Caméra « Écran » pendant un jeu | image en direct (le flux RTSP n'existe qu'en jeu) |
 | 9 | Luminosité, volume, sortie audio, écran allumé | valeurs cohérentes avec la console |
+
+## Nintendo Switch ou Switch 2 (compte Nintendo, sans modification)
+
+Console associée à l'application Contrôle parental Nintendo Switch. Entité de présence : par
+exemple l'entrée HDMI de la Sync Box (`linked` quand l'image arrive).
+
+| # | Essai | Attendu |
+|---|---|---|
+| 1 | Ajout : lien de connexion, lien copié collé | console(s) du compte proposée(s) ; entrée créée, modèle Switch ou Switch 2 |
+| 2 | Temps de jeu aujourd'hui, semaine, mois | mêmes valeurs que l'application Contrôle parental (à son délai près) |
+| 3 | Lancer un jeu, console allumée (présence `on`) | `playing` avec titre et jaquette : **noter le délai** entre le lancement et l'affichage |
+| 4 | Changer de jeu | nouveau titre affiché : noter le délai |
+| 5 | Mettre la console en veille | `off` dès que l'entité de présence change |
+| 6 | Sans entité de présence (option vidée) | `on` quand le temps de jeu augmente, `off` 30 min après la dernière minute ajoutée |
+| 7 | Jeu Switch 2 | titre et jaquette présents (sinon, joindre les diagnostics) |
+| 8 | Se déconnecter du compte Nintendo sur le site Nintendo | demande de reconnexion dans Home Assistant ; reconnexion par le même parcours |
+| 9 | Redémarrage de Home Assistant en cours de jeu | pas de jeu affiché à tort ; temps de jeu inchangé |
+
+Point sensible : le délai de synchronisation de la console vers Nintendo n'est pas connu. Les
+essais 3, 4 et 6 le mesurent. S'il est long, le jeu en cours affiché arrive en retard.
+
+## PlayStation 3 sans modification
+
+| # | Essai | Attendu |
+|---|---|---|
+| 1 | Ajout avec l'entrée HDMI comme entité source, puis le compte PSN | entrée créée, modèle PlayStation 3 |
+| 2 | PS3 allumée, sur le XMB | `on` d'après l'entité |
+| 3 | PS3 connectée au PSN, en jeu | `playing` avec le titre et l'icône du jeu (compte PSN, moins de deux minutes) |
+| 4 | PS3 éteinte | `off` dès que l'entité change |
 
 ## Contrôle parental et consommation (une console suffit)
 

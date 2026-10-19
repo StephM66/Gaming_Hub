@@ -48,7 +48,7 @@
       },
       "ps3": {
         "title": "PlayStation 3",
-        "description": "Requires a console running webMAN MOD (CFW or PS3HEN) and turned on. A PS3 cannot be powered on over the network: link a script in the options (HDMI-CEC, Bluetooth, button pusher…).",
+        "description": "Requires a console running webMAN MOD (CFW or PS3HEN) and turned on. A PS3 cannot be powered on over the network: link a script in the options (e.g. HDMI-CEC through the TV).",
         "data": {
           "host": "IP address",
           "port": "webMAN port",
@@ -166,7 +166,7 @@
         },
         "data_description": {
           "power_entity": "A smart plug powering the console: the Power and Energy sensors only exist with it.",
-          "turn_on_entity": "Script, button or switch replacing the native command (PS3: HDMI-CEC, Bluetooth, button pusher).",
+          "turn_on_entity": "Script, button or switch replacing the native command (e.g. HDMI-CEC through the TV).",
           "turn_off_entity": "Script, button or switch replacing the native command.",
           "block_entity": "Activated instead of turning the console off when play time is over, e.g. the Nintendo Switch Parental Controls suspend switch.",
           "image_template": "Leave empty to disable artwork.",

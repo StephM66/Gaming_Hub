@@ -2,9 +2,9 @@
 
 The console reports its play activity to Nintendo, which the "Nintendo Switch Parental
 Controls" app shows; this client reads the same data. Sign-in is the app's own: open the
-login link, sign in, copy the link of the "Select this person" button and paste it. Client
-ID, endpoints and headers follow pynintendoauth and pynintendoparental (MIT,
-https://github.com/pantherale0), used by Home Assistant's nintendo_parental_controls.
+login link, sign in, copy the link of the account's red button and paste it. Client ID,
+endpoints and headers follow pynintendoauth (Apache 2.0) and pynintendoparental (MIT), by
+pantherale0, used by Home Assistant's nintendo_parental_controls.
 
 Read only. Nintendo gives no live power state and no way to turn a console on or off.
 """

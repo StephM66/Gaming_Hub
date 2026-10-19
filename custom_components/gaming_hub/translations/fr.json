@@ -48,7 +48,7 @@
       },
       "ps3": {
         "title": "PlayStation 3",
-        "description": "Nécessite webMAN MOD sur la console (CFW ou PS3HEN), console allumée. Une PS3 ne peut pas être allumée par le réseau : associer un script dans les options (HDMI-CEC, Bluetooth, pousse-bouton…).",
+        "description": "Nécessite webMAN MOD sur la console (CFW ou PS3HEN), console allumée. Une PS3 ne peut pas être allumée par le réseau : associer un script dans les options (par exemple HDMI-CEC via la TV).",
         "data": {
           "host": "Adresse IP",
           "port": "Port de webMAN",
@@ -166,7 +166,7 @@
         },
         "data_description": {
           "power_entity": "Une prise connectée en amont de la console : les capteurs Puissance et Énergie n'existent qu'avec elle.",
-          "turn_on_entity": "Script, bouton ou interrupteur qui remplace la commande native (PS3 : HDMI-CEC, Bluetooth, pousse-bouton).",
+          "turn_on_entity": "Script, bouton ou interrupteur qui remplace la commande native (par exemple HDMI-CEC via la TV).",
           "turn_off_entity": "Script, bouton ou interrupteur qui remplace la commande native.",
           "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé, par exemple l'interrupteur de suspension de l'intégration Contrôle parental Nintendo Switch.",
           "image_template": "Laisser vide pour ne pas afficher de jaquette.",
