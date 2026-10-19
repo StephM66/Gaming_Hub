@@ -39,7 +39,7 @@ Ce qui reste est imposé par les consoles, pas par le hub :
 
 **Gaming Hub est fourni en l'état, sans aucune garantie** : ni de fonctionnement, ni de mise à
 jour, ni de maintenance, ni de support. C'est un projet personnel, publié pour qui veut s'en
-servir ou le reprendre (licence MIT).
+servir ou le reprendre librement (licence MIT-0, sans même obligation de citer l'auteur).
 
 - Il s'appuie sur des interfaces non officielles (PlayStation Network, Lecture à distance,
   webMAN MOD, Switch Assistant) qui peuvent changer et casser une fonction sans préavis.

@@ -1,7 +1,8 @@
 # Notices
 
-Gaming Hub est publié sous licence MIT (voir `LICENSE`). Les parties ci-dessous viennent de
-projets sous licences compatibles, dont les mentions sont reproduites ici.
+Gaming Hub est publié sous licence MIT-0 (MIT sans obligation d'attribution, voir `LICENSE`).
+Les parties ci-dessous viennent de projets sous licences compatibles, dont les mentions sont
+reproduites ici.
 
 ## playactor
 

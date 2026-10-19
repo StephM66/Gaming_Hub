@@ -62,4 +62,4 @@ en français ou en anglais.
 ## Licence
 
 En contribuant, vous acceptez que votre contribution soit publiée sous la
-[licence MIT](LICENSE) du projet.
+[licence MIT-0](LICENSE) du projet.
