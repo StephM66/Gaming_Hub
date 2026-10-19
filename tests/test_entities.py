@@ -10,6 +10,7 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_capture_events,
@@ -52,7 +53,9 @@ async def test_ps5(
     assert (state.state, state.attributes["power_state"]) == ("off", "standby")
     assert state.attributes["supported_features"] == 384  # TURN_ON | TURN_OFF
     assert hass.states.get("sensor.ps5_salon_system_version").state == "9.40"
-    assert hass.states.get("sensor.ps5_salon_power").state == "1.5"  # estimated rest mode
+    # No smart plug linked: no power or energy sensor (no more estimates).
+    assert hass.states.get("sensor.ps5_salon_power") is None
+    assert hass.states.get("sensor.ps5_salon_energy") is None
     assert hass.states.get("binary_sensor.ps5_salon_playing").state == STATE_OFF
 
     await hass.services.async_call(
@@ -104,7 +107,6 @@ async def test_ps5_game_and_account_from_psn(
         entity = hass.data["media_player"].get_entity("media_player.ps5_salon")
         assert entity.media_image_url == "https://psn/astro.png"
         assert hass.states.get("sensor.ps5_salon_current_game").state == "Astro Bot"
-        assert hass.states.get("sensor.ps5_salon_power").state == "200.0"
         psn_state = hass.states.get("sensor.ps5_salon_playstation_network")
         assert (psn_state.state, psn_state.attributes["online_id"]) == ("online", "Steph66")
         trophies = hass.states.get("sensor.ps5_salon_trophy_level")
@@ -307,7 +309,6 @@ async def test_linked_xbox(hass: HomeAssistant, freezer: FrozenDateTimeFactory) 
     await _setup(hass, entry)
     hub = "media_player.xbox_2"
     assert hass.states.get(hub).state == STATE_OFF
-    assert hass.states.get("sensor.xbox_power").state == "10.0"
     device = hass.data["device_registry"].async_get_device({(DOMAIN, entry.entry_id)})
     assert (device.manufacturer, device.model) == ("Microsoft", "Xbox")
 
@@ -341,8 +342,7 @@ async def test_measured_power_and_energy(
     ps5_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(ps5_entry, options={"power_entity": "sensor.prise_ps5"})
     await _setup(hass, ps5_entry)
-    state = hass.states.get("sensor.ps5_salon_power")
-    assert (state.state, state.attributes["source"]) == ("100.0", "measured")
+    assert hass.states.get("sensor.ps5_salon_power").state == "100.0"
     for _ in range(6):
         freezer.tick(timedelta(seconds=10))
         async_fire_time_changed(hass)
@@ -350,6 +350,14 @@ async def test_measured_power_and_energy(
     # 100 W during 60 s
     assert float(hass.states.get("sensor.ps5_salon_energy").state) == round(100 * 60 / 3.6e6, 4)
     assert float(hass.states.get("sensor.ps5_salon_play_time_today").state) == 1.0
+
+    # Plug unlinked: power and energy disappear, from the entity registry too.
+    hass.config_entries.async_update_entry(ps5_entry, options={})
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    assert registry.async_get("sensor.ps5_salon_power") is None
+    assert registry.async_get("sensor.ps5_salon_energy") is None
+    assert registry.async_get("sensor.ps5_salon_play_time_today") is not None
 
 
 async def test_parental_control_turns_console_off(

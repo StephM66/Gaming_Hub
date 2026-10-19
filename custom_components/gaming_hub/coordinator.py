@@ -28,21 +28,17 @@ from .const import (
     CONF_PRESET,
     CONF_TURN_OFF_ENTITY,
     CONF_TURN_ON_ENTITY,
-    CONF_WATTS_IDLE,
-    CONF_WATTS_PLAYING,
-    CONF_WATTS_STANDBY,
     DEVICE_INFO,
     DOMAIN,
     EVENT_PARENTAL,
     MESSAGES,
-    POWER_PROFILES,
     STORAGE_VERSION,
     ConsoleKind,
     LinkedPreset,
 )
 from .drivers import ConsoleDriver
 from .drivers.base import unsupported
-from .models import ConsoleSnapshot, PowerProfile
+from .models import ConsoleSnapshot
 from .parental import (
     BlockReason,
     Notice,
@@ -67,15 +63,14 @@ type GamingHubConfigEntry = ConfigEntry[GamingHubCoordinator]
 @dataclass(slots=True)
 class ConsoleData:
     snapshot: ConsoleSnapshot
-    power: float | None  # W
-    power_measured: bool
+    power: float | None  # W, from the linked power sensor
     energy: float  # kWh
     playtime: float  # seconds today
     parental: ParentalDecision
 
 
 def profile_key(data: dict[str, Any]) -> str:
-    """Key of POWER_PROFILES / DEVICE_INFO for an entry."""
+    """Key of DEVICE_INFO for an entry."""
     kind = ConsoleKind(data[CONF_KIND])
     return data.get(CONF_PRESET, LinkedPreset.OTHER) if kind is ConsoleKind.LINKED else kind
 
@@ -106,12 +101,6 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self.options = dict(entry.options)
         key = profile_key(dict(entry.data))
         self.manufacturer, self.model = DEVICE_INFO[key]
-        default = POWER_PROFILES[key]
-        self.profile = PowerProfile(
-            playing=float(self.options.get(CONF_WATTS_PLAYING, default.playing)),
-            idle=float(self.options.get(CONF_WATTS_IDLE, default.idle)),
-            standby=float(self.options.get(CONF_WATTS_STANDBY, default.standby)),
-        )
         self.usage = UsageTracker()
         self.parental = ParentalController(ParentalSettings())
         self._store: Store[dict[str, Any]] = Store(
@@ -179,7 +168,8 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
 
     @property
     def has_power(self) -> bool:
-        return bool(self.options.get(CONF_POWER_ENTITY)) or self.profile.known
+        # Power and energy only exist with a power sensor (smart plug) linked in the options.
+        return bool(self.options.get(CONF_POWER_ENTITY))
 
     async def _async_update_data(self) -> ConsoleData:
         try:
@@ -189,7 +179,7 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         now = dt_util.now()
         await self._async_update_psn(snapshot.is_on, now)
         self._merge_psn(snapshot)
-        power, measured = self._power(snapshot)
+        power = self._power()
         self.usage.update(now, snapshot.is_on, power)
         decision = self.parental.evaluate(now, snapshot.is_on, self.usage.playtime)
         self._schedule_save(now)
@@ -200,7 +190,6 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         return ConsoleData(
             snapshot=snapshot,
             power=power,
-            power_measured=measured,
             energy=self.usage.energy,
             playtime=self.usage.playtime,
             parental=decision,
@@ -252,18 +241,17 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             snapshot.title_id = snapshot.title_id or session.title_id
             snapshot.image_url = snapshot.image_url or session.image
 
-    def _power(self, snapshot: ConsoleSnapshot) -> tuple[float | None, bool]:
+    def _power(self) -> float | None:
         if (entity := self.options.get(CONF_POWER_ENTITY)) and (
             state := self.hass.states.get(entity)
         ):
             try:
                 value = float(state.state)
             except ValueError:
-                pass
-            else:
-                kilowatts = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) == UnitOfPower.KILO_WATT
-                return value * 1000 if kilowatts else value, True
-        return self.profile.estimate(snapshot), False
+                return None
+            kilowatts = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) == UnitOfPower.KILO_WATT
+            return value * 1000 if kilowatts else value
+        return None
 
     # --- Commands -----------------------------------------------------------
 

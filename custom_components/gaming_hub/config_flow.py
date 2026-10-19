@@ -53,12 +53,8 @@ from .const import (
     CONF_SOURCE_ENTITY,
     CONF_TURN_OFF_ENTITY,
     CONF_TURN_ON_ENTITY,
-    CONF_WATTS_IDLE,
-    CONF_WATTS_PLAYING,
-    CONF_WATTS_STANDBY,
     DEFAULT_SWITCH_IMAGE_TEMPLATE,
     DOMAIN,
-    POWER_PROFILES,
     PS5_MQTT_CREDENTIALS,
     ConsoleKind,
     LinkedPreset,
@@ -445,7 +441,7 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class GamingHubOptionsFlow(OptionsFlow):
-    """Links to other entities and the power profile."""
+    """Links to other entities: power sensor, commands, parental block."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self.config_entry
@@ -454,7 +450,6 @@ class GamingHubOptionsFlow(OptionsFlow):
                 # An empty template disables artwork instead of restoring the default.
                 user_input.setdefault(CONF_IMAGE_TEMPLATE, "")
             return self.async_create_entry(data=user_input)
-        default = POWER_PROFILES[profile_key(dict(entry.data))]
         fields: dict[Any, Any] = {
             vol.Optional(CONF_POWER_ENTITY): EntitySelector(
                 EntitySelectorConfig(domain=Platform.SENSOR, device_class="power")
@@ -468,9 +463,6 @@ class GamingHubOptionsFlow(OptionsFlow):
             vol.Optional(CONF_BLOCK_ENTITY): EntitySelector(
                 EntitySelectorConfig(domain=ACTION_DOMAINS)
             ),
-            vol.Required(CONF_WATTS_PLAYING, default=default.playing): _watts(),
-            vol.Required(CONF_WATTS_IDLE, default=default.idle): _watts(),
-            vol.Required(CONF_WATTS_STANDBY, default=default.standby): _watts(),
         }
         if entry.data[CONF_KIND] == ConsoleKind.SWITCH:
             fields[vol.Optional(CONF_IMAGE_TEMPLATE)] = str

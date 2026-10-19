@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, time, timedelta
 
-from custom_components.gaming_hub.models import ConsoleSnapshot, PowerProfile, PowerState
+from custom_components.gaming_hub.models import ConsoleSnapshot, PowerState
 from custom_components.gaming_hub.parental import (
     BlockReason,
     Notice,
@@ -23,14 +23,10 @@ def at(hour: int, minute: int = 0, second: int = 0) -> datetime:
     return DAY.replace(hour=hour, minute=minute, second=second)
 
 
-def test_power_profile() -> None:
-    profile = PowerProfile(playing=200, idle=60, standby=1.5)
-    assert profile.estimate(ConsoleSnapshot(PowerState.ON, title="Astro Bot")) == 200
-    assert profile.estimate(ConsoleSnapshot(PowerState.ON, in_game=True)) == 200
-    assert profile.estimate(ConsoleSnapshot(PowerState.ON)) == 60
-    assert profile.estimate(ConsoleSnapshot(PowerState.STANDBY)) == 1.5
-    assert profile.estimate(ConsoleSnapshot(PowerState.OFF)) == 1.5
-    assert PowerProfile().estimate(ConsoleSnapshot(PowerState.ON)) is None
+def test_playing() -> None:
+    assert ConsoleSnapshot(PowerState.ON, title="Astro Bot").playing
+    assert ConsoleSnapshot(PowerState.ON, in_game=True).playing
+    assert not ConsoleSnapshot(PowerState.ON).playing
     # A title reported while the console is in standby does not mean playing.
     assert not ConsoleSnapshot(PowerState.STANDBY, title="x").playing
 

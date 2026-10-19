@@ -264,16 +264,10 @@ async def test_options(hass: HomeAssistant, ps5_entry) -> None:
     assert result["type"] is FlowResultType.FORM
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {
-            "power_entity": "sensor.prise_ps5_power",
-            "watts_playing": 180,
-            "watts_idle": 60,
-            "watts_standby": 3.5,
-        },
+        {"power_entity": "sensor.prise_ps5_power"},
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert ps5_entry.options["power_entity"] == "sensor.prise_ps5_power"
-    assert ps5_entry.options["watts_standby"] == 3.5
 
 
 async def test_ps5_psn_account_fills_the_pairing(hass: HomeAssistant, mock_ddp) -> None:

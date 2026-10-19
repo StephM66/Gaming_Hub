@@ -15,6 +15,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import (
     PERCENTAGE,
     EntityCategory,
+    Platform,
     UnitOfElectricPotential,
     UnitOfEnergy,
     UnitOfInformation,
@@ -23,6 +24,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import ConsoleData, GamingHubConfigEntry, GamingHubCoordinator
@@ -57,7 +59,6 @@ HUB_SENSORS: tuple[HubSensorDescription, ...] = (
         suggested_display_precision=1,
         value_fn=lambda data: data.power,
         exists_fn=lambda coordinator: coordinator.has_power,
-        attributes_fn=lambda data: {"source": "measured" if data.power_measured else "estimated"},
     ),
     HubSensorDescription(
         key="energy",
@@ -292,7 +293,14 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     descriptions = [d for d in HUB_SENSORS if d.exists_fn(coordinator)]
     descriptions += [DRIVER_SENSORS[key] for key in coordinator.sensor_keys]
-    async_add_entities(HubSensor(coordinator, description) for description in descriptions)
+    entities = [HubSensor(coordinator, description) for description in descriptions]
+    # Sensors no longer provided (power and energy once the plug is unlinked) are removed.
+    registry = er.async_get(hass)
+    wanted = {entity.unique_id for entity in entities}
+    for stale in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if stale.domain == Platform.SENSOR and stale.unique_id not in wanted:
+            registry.async_remove(stale.entity_id)
+    async_add_entities(entities)
 
 
 class HubSensor(GamingHubEntity, SensorEntity):

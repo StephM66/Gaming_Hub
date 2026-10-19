@@ -126,19 +126,16 @@
   "options": {
     "step": {
       "init": {
-        "title": "Liens et consommation",
+        "title": "Liens",
         "data": {
           "power_entity": "Capteur de puissance (prise connectée)",
           "turn_on_entity": "Allumer avec",
           "turn_off_entity": "Éteindre avec",
           "block_entity": "Blocage parental avec",
-          "watts_playing": "Puissance estimée en jeu",
-          "watts_idle": "Puissance estimée allumée, sans jeu",
-          "watts_standby": "Puissance estimée en veille ou éteinte",
           "image_template": "URL de la jaquette ({title_id})"
         },
         "data_description": {
-          "power_entity": "La puissance mesurée remplace l'estimation.",
+          "power_entity": "Une prise connectée en amont de la console : les capteurs Puissance et Énergie n'existent qu'avec elle.",
           "turn_on_entity": "Script, bouton ou interrupteur qui remplace la commande native (PS3 : HDMI-CEC, Bluetooth, pousse-bouton).",
           "turn_off_entity": "Script, bouton ou interrupteur qui remplace la commande native.",
           "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé, par exemple l'interrupteur de suspension de l'intégration Contrôle parental Nintendo Switch.",

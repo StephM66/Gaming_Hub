@@ -66,7 +66,7 @@ Sécurité et signalement des failles : [`SECURITY.md`](SECURITY.md).
 | Données de la console | version du système | températures CPU/RSX, ventilateur (vitesse, mode, cible), durée de la partie, mémoire et disque libres, allumée depuis, firmware, réseau, utilisation totale, démarrages | batterie (niveau, santé, température, tension), charge, chargeur, écran, luminosité, volume, sortie audio, manettes par joueur | — |
 | Compte PlayStation Network² | statut, niveau et nombre de trophées, PlayStation Plus | idem | — | idem (PS4) |
 | Contrôle parental du hub | ✅ | ✅ | ✅ (+ suspension Nintendo⁴) | ✅ |
-| Consommation | mesurée ou estimée | mesurée ou estimée | mesurée ou estimée | mesurée ou estimée |
+| Consommation | avec une prise connectée | idem | idem | idem |
 
 1. Une PS3 et une Switch ne s'allument pas par le réseau. On associe un script, un bouton ou un
    interrupteur dans les options : HDMI-CEC via la TV, Bluetooth, pousse-bouton (SwitchBot…).
@@ -161,16 +161,15 @@ PlayStation 4, PC / Steam Deck, console rétro, autre) et l'entité source :
 - un **interrupteur**, un capteur binaire, un `input_boolean` ou un `device_tracker` : allumée ou éteinte ;
 - un **capteur de puissance** : allumée au-delà d'un seuil, pratique pour une console rétro sur prise connectée.
 
-Le type ne sert qu'au fabricant affiché et aux puissances estimées par défaut.
+Le type ne sert qu'au fabricant et au modèle affichés.
 
 ## Options (toutes consoles)
 
 | Option | Usage |
 |---|---|
-| Capteur de puissance | Puissance mesurée (prise connectée), qui remplace l'estimation. |
+| Capteur de puissance | Prise connectée en amont de la console : ajoute « Puissance » et « Énergie ». |
 | Allumer avec / Éteindre avec | Script, scène, bouton ou interrupteur qui remplace la commande native. |
 | Blocage parental avec | Activé à la place de l'extinction quand le temps de jeu est écoulé. |
-| Puissances estimées | En jeu, allumée sans jeu, en veille ou éteinte (W). Valeurs indicatives par défaut. |
 | URL de la jaquette (Switch) | Modèle avec `{title_id}` ; vide pour désactiver. |
 
 ## Contrôle parental
@@ -212,20 +211,11 @@ Capteurs : « Temps de jeu aujourd'hui », « Temps de jeu restant », « Contr�
 
 ## Consommation
 
-« Puissance » (W) vient du capteur de puissance associé ou, à défaut, d'une estimation selon
-l'état (en jeu, allumée, veille). « Énergie » (kWh, cumulée) peut s'ajouter au tableau de bord
-Énergie comme appareil individuel. Valeurs estimées par défaut :
-
-| Console | En jeu | Allumée sans jeu | Veille / éteinte |
-|---|---|---|---|
-| PS5 | 200 W | 70 W | 1,5 W |
-| PS3 | 90 W | 75 W | 0,5 W |
-| Switch (dock) | 12 W | 7 W | 0,5 W |
-| Xbox | 150 W | 50 W | 10 W |
-| PS4 | 140 W | 60 W | 5 W |
-
-Une prise connectée donne la vraie valeur ; les modèles et les jeux varient beaucoup (une PS3
-« fat » consomme plus du double d'une Slim).
+Facultative : il faut une prise connectée en amont de la console, à associer dans les options
+(« Capteur de puissance »). La console gagne alors « Puissance » (W, celle de la prise) et
+« Énergie » (kWh, cumulée), que l'on peut ajouter au tableau de bord Énergie comme appareil
+individuel. Sans prise, ces deux capteurs n'existent pas : une estimation serait trop
+approximative (les modèles et les jeux varient beaucoup). Dissocier la prise les supprime.
 
 ## Entités par console
 
@@ -233,7 +223,7 @@ Une prise connectée donne la vraie valeur ; les modèles et les jeux varient be
 |---|---|
 | `media_player` | état, jeu, jaquette, allumer/éteindre ; en mode repos l'état est `off` et l'attribut `power_state` vaut `standby` |
 | Jeu en cours, En jeu | pour les automatisations et l'historique |
-| Puissance, Énergie | si un capteur est associé ou si une estimation existe |
+| Puissance, Énergie | seulement avec une prise connectée associée |
 | Temps de jeu aujourd'hui, Temps de jeu restant, Contrôle parental | |
 | Contrôle parental, Temps de jeu quotidien, Préavis, plage horaire, action | réglages (catégorie configuration) |
 | Message à l'écran, Redémarrer | PS3 et Switch |
