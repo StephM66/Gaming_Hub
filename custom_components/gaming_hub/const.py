@@ -47,10 +47,10 @@ CONF_DISCOVERY_PREFIX: Final = "discovery_prefix"
 CONF_SOURCE_ENTITY: Final = "source_entity"
 CONF_PRESET: Final = "preset"
 CONF_ON_THRESHOLD: Final = "on_threshold"
+CONF_NPSSO: Final = "npsso"
 
 # Options (every kind)
 CONF_POWER_ENTITY: Final = "power_entity"
-CONF_NOW_PLAYING_ENTITY: Final = "now_playing_entity"
 CONF_TURN_ON_ENTITY: Final = "turn_on_entity"
 CONF_TURN_OFF_ENTITY: Final = "turn_off_entity"
 CONF_BLOCK_ENTITY: Final = "block_entity"

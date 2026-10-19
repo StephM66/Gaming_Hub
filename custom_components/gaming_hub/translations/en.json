@@ -37,7 +37,7 @@
       },
       "ps5_register": {
         "title": "Pair with a PIN",
-        "description": "On the PS5: Settings > System > Remote Play > Link Device, then enter the 8-digit PIN shown. The account ID is the numeric PSN ID (also used by the PlayStation Network integration).",
+        "description": "On the PS5: Settings > System > Remote Play > Link Device, then enter the 8-digit PIN shown. The account ID is filled in when the PlayStation Network account was linked in the previous step.",
         "data": {
           "account_id": "PSN account ID",
           "pin": "PIN",
@@ -79,6 +79,27 @@
           "name": "Name",
           "on_threshold": "On above (power sensor only)"
         }
+      },
+      "psn": {
+        "title": "PlayStation Network account (optional)",
+        "description": "Gives the current game with its artwork, the online status, trophies and PlayStation Plus, without any other integration. Sign in on playstation.com, open {npsso_url} and copy the value of \"npsso\". Leave empty to skip.",
+        "data": {
+          "npsso": "NPSSO token"
+        }
+      },
+      "reauth_confirm": {
+        "title": "PlayStation Network token expired",
+        "description": "The NPSSO token lasts about two months. Sign in on playstation.com, open {npsso_url} and copy the new value of \"npsso\".",
+        "data": {
+          "npsso": "NPSSO token"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure",
+        "menu_options": {
+          "psn": "PlayStation Network account",
+          "ps5_pairing": "Power control pairing"
+        }
       }
     },
     "error": {
@@ -89,14 +110,17 @@
       "invalid_account": "Invalid PSN account ID.",
       "not_in_pairing_mode": "The console is not showing a pairing PIN.",
       "in_use": "Remote Play is already in use.",
-      "pairing_failed": "Pairing failed."
+      "pairing_failed": "Pairing failed.",
+      "invalid_npsso": "This NPSSO token is not valid (expired, or copied incompletely).",
+      "psn_unavailable": "PlayStation Network did not answer, try again later."
     },
     "abort": {
       "already_configured": "This console is already configured.",
       "mqtt_required": "Set up the MQTT integration first.",
       "invalid_discovery": "Unexpected MQTT topic.",
       "reconfigure_unsupported": "Nothing to reconfigure for this console: remove it and add it again.",
-      "reconfigure_successful": "Pairing updated."
+      "reconfigure_successful": "Pairing updated.",
+      "reauth_successful": "PlayStation Network account updated."
     }
   },
   "options": {
@@ -105,7 +129,6 @@
         "title": "Links and consumption",
         "data": {
           "power_entity": "Power sensor (smart plug)",
-          "now_playing_entity": "Current game source",
           "turn_on_entity": "Turn on with",
           "turn_off_entity": "Turn off with",
           "block_entity": "Parental block with",
@@ -116,7 +139,6 @@
         },
         "data_description": {
           "power_entity": "Measured power replaces the estimate.",
-          "now_playing_entity": "Media player giving the game when the console does not, e.g. the PlayStation Network integration.",
           "turn_on_entity": "Script, button or switch replacing the native command (PS3: HDMI-CEC, Bluetooth, button pusher).",
           "turn_off_entity": "Script, button or switch replacing the native command.",
           "block_entity": "Activated instead of turning the console off when play time is over, e.g. the Nintendo Switch Parental Controls suspend switch.",
@@ -138,18 +160,44 @@
   },
   "entity": {
     "binary_sensor": {
-      "playing": { "name": "Playing" },
-      "charging": { "name": "Charging" }
+      "playing": {
+        "name": "Playing"
+      },
+      "charging": {
+        "name": "Charging"
+      },
+      "screen_on": {
+        "name": "Screen"
+      },
+      "ps_plus": {
+        "name": "PlayStation Plus"
+      }
     },
     "button": {
-      "restart": { "name": "Restart" }
+      "restart": {
+        "name": "Restart"
+      },
+      "quit_game": {
+        "name": "Quit game"
+      }
+    },
+    "camera": {
+      "screen": {
+        "name": "Screen"
+      }
     },
     "notify": {
-      "message": { "name": "On-screen message" }
+      "message": {
+        "name": "On-screen message"
+      }
     },
     "number": {
-      "daily_limit": { "name": "Daily play time" },
-      "warning": { "name": "Warning before limit" }
+      "daily_limit": {
+        "name": "Daily play time"
+      },
+      "warning": {
+        "name": "Warning before limit"
+      }
     },
     "select": {
       "parental_action": {
@@ -161,10 +209,18 @@
       }
     },
     "sensor": {
-      "game": { "name": "Current game" },
-      "power": { "name": "Power" },
-      "energy": { "name": "Energy" },
-      "playtime_today": { "name": "Play time today" },
+      "game": {
+        "name": "Current game"
+      },
+      "power": {
+        "name": "Power"
+      },
+      "energy": {
+        "name": "Energy"
+      },
+      "playtime_today": {
+        "name": "Play time today"
+      },
       "parental_status": {
         "name": "Parental control",
         "state": {
@@ -174,22 +230,122 @@
           "blocked": "Blocked"
         }
       },
-      "parental_remaining": { "name": "Play time left" },
-      "cpu_temperature": { "name": "CPU temperature" },
-      "rsx_temperature": { "name": "RSX temperature" },
-      "fan_speed": { "name": "Fan speed" },
-      "firmware": { "name": "Firmware" },
-      "system_version": { "name": "System version" },
-      "battery": { "name": "Battery" },
-      "battery_temperature": { "name": "Battery temperature" },
-      "controllers": { "name": "Controllers" }
+      "parental_remaining": {
+        "name": "Play time left"
+      },
+      "cpu_temperature": {
+        "name": "CPU temperature"
+      },
+      "rsx_temperature": {
+        "name": "RSX temperature"
+      },
+      "fan_speed": {
+        "name": "Fan speed"
+      },
+      "firmware": {
+        "name": "Firmware"
+      },
+      "system_version": {
+        "name": "System version"
+      },
+      "battery": {
+        "name": "Battery"
+      },
+      "battery_temperature": {
+        "name": "Battery temperature"
+      },
+      "controllers": {
+        "name": "Controllers"
+      },
+      "fan_mode": {
+        "name": "Fan mode",
+        "state": {
+          "syscon": "Console (SYSCON)",
+          "auto": "Automatic",
+          "dynamic": "Dynamic",
+          "manual": "Manual",
+          "ps2": "PS2 mode"
+        }
+      },
+      "fan_target": {
+        "name": "Fan target temperature"
+      },
+      "session_time": {
+        "name": "Game session"
+      },
+      "memory_free": {
+        "name": "Free memory"
+      },
+      "hdd_free": {
+        "name": "Free disk space"
+      },
+      "started_at": {
+        "name": "Powered on at"
+      },
+      "network": {
+        "name": "Network connection"
+      },
+      "ip_address": {
+        "name": "IP address"
+      },
+      "runtime": {
+        "name": "Total use"
+      },
+      "power_on_count": {
+        "name": "Power-on count"
+      },
+      "battery_health": {
+        "name": "Battery health"
+      },
+      "battery_voltage": {
+        "name": "Battery voltage"
+      },
+      "charger": {
+        "name": "Charger",
+        "state": {
+          "unconnected": "Unplugged",
+          "enough_power": "Charging",
+          "low_power": "Low-power charger",
+          "not_supported": "Unsupported charger",
+          "unknown": "Unknown"
+        }
+      },
+      "brightness": {
+        "name": "Screen brightness"
+      },
+      "volume": {
+        "name": "Volume"
+      },
+      "audio_output": {
+        "name": "Audio output",
+        "state": {
+          "speaker": "Speaker",
+          "headphone": "Headphones",
+          "tv": "TV",
+          "usb": "USB",
+          "bluetooth": "Bluetooth",
+          "unknown": "Unknown"
+        }
+      },
+      "psn_status": {
+        "name": "PlayStation Network"
+      },
+      "trophy_level": {
+        "name": "Trophy level"
+      }
     },
     "switch": {
-      "parental_control": { "name": "Parental control" }
+      "parental_control": {
+        "name": "Parental control"
+      }
     },
     "time": {
-      "allowed_from": { "name": "Play allowed from" },
-      "allowed_until": { "name": "Play allowed until" }
+      "allowed_from": {
+        "name": "Play allowed from"
+      },
+      "allowed_until": {
+        "name": "Play allowed until"
+      }
     }
   },
   "exceptions": {

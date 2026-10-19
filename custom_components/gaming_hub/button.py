@@ -1,4 +1,4 @@
-"""Restart, for consoles that support it."""
+"""Console buttons: restart, quit the running game."""
 
 from __future__ import annotations
 
@@ -17,19 +17,23 @@ async def async_setup_entry(
     entry: GamingHubConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    if entry.runtime_data.driver.can_restart:
-        async_add_entities([RestartButton(entry.runtime_data)])
+    coordinator = entry.runtime_data
+    async_add_entities(ConsoleButton(coordinator, key) for key in coordinator.driver.buttons)
 
 
-class RestartButton(GamingHubEntity, ButtonEntity):
-    _attr_device_class = ButtonDeviceClass.RESTART
-
-    def __init__(self, coordinator: GamingHubCoordinator) -> None:
-        super().__init__(coordinator, "restart")
+class ConsoleButton(GamingHubEntity, ButtonEntity):
+    def __init__(self, coordinator: GamingHubCoordinator, key: str) -> None:
+        super().__init__(coordinator, key)
+        self._key = key
+        if key == "restart":
+            self._attr_device_class = ButtonDeviceClass.RESTART
 
     @property
     def available(self) -> bool:
-        return super().available and self.coordinator.data.snapshot.is_on
+        snapshot = self.coordinator.data.snapshot
+        if self._key == "quit_game":
+            return super().available and snapshot.playing
+        return super().available and snapshot.is_on
 
     async def async_press(self) -> None:
-        await self.coordinator.async_restart()
+        await self.coordinator.async_press(self._key)

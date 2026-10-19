@@ -19,12 +19,36 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 import re
+from urllib.parse import urlsplit
 
 STATE_ROOT = "switch_ha"
 DEFAULT_DISCOVERY_PREFIX = "homeassistant"
 HEARTBEAT_TIMEOUT = 45.0  # three missed heartbeats
 _UNSAFE = re.compile(r"[^A-Za-z0-9]")
 _NONE = {"", "none", "unknown"}
+_TITLE_ID = re.compile(r"[0-9A-F]{16}")
+# Only what the sysmodule publishes is kept, each value at most this long.
+SENSORS = frozenset(
+    {
+        "battery",
+        "charging",
+        "charger_type",
+        "battery_voltage",
+        "battery_temperature",
+        "battery_health",
+        "brightness",
+        "backlight",
+        "volume",
+        "audio_target",
+        "game_running",
+        "current_game",
+        "current_game_id",
+        "controller_count",
+        "screen_rtsp_url",
+        *(f"player_{slot}_controller" for slot in range(1, 9)),
+    }
+)
+MAX_VALUE = 255
 
 
 def sanitize_client_id(client_id: str) -> str:
@@ -75,8 +99,9 @@ class SwitchAssistantState:
         if not topic.startswith(prefix):
             return False
         sensor = topic[len(prefix) :]
-        if sensor.startswith("notify/"):
+        if sensor not in SENSORS:
             return False
+        payload = payload[:MAX_VALUE]
         changed = self.values.get(sensor) != payload
         self.values[sensor] = payload
         if not retained:
@@ -132,8 +157,9 @@ class SwitchAssistantState:
 
     @property
     def title_id(self) -> str | None:
-        value = self._text("current_game_id") if self.game_running else None
-        return value.upper() if value else None
+        """Application ID, only when it has the expected 16 hexadecimal digits."""
+        value = (self._text("current_game_id") or "").upper() if self.game_running else ""
+        return value if _TITLE_ID.fullmatch(value) else None
 
     @property
     def battery(self) -> float | None:
@@ -152,3 +178,54 @@ class SwitchAssistantState:
     def controllers(self) -> int | None:
         value = self._number("controller_count")
         return None if value is None else int(value)
+
+    @property
+    def battery_health(self) -> float | None:
+        return self._number("battery_health")
+
+    @property
+    def battery_voltage(self) -> float | None:
+        return self._number("battery_voltage")
+
+    @property
+    def charger(self) -> str | None:
+        return self._text("charger_type")
+
+    @property
+    def brightness(self) -> float | None:
+        return self._number("brightness")
+
+    @property
+    def screen_on(self) -> bool | None:
+        value = self.values.get("backlight")
+        return None if value is None else value == "ON"
+
+    @property
+    def volume(self) -> float | None:
+        return self._number("volume")
+
+    @property
+    def audio_output(self) -> str | None:
+        return self._text("audio_target")
+
+    @property
+    def players(self) -> dict[str, str]:
+        """Controller type per player slot (``player_1`` → ``joycon_pair``…)."""
+        return {
+            f"player_{slot}": value
+            for slot in range(1, 9)
+            if (value := self._text(f"player_{slot}_controller"))
+        }
+
+    @property
+    def stream_url(self) -> str | None:
+        """RTSP stream of the screen (available while a game runs)."""
+        value = self._text("screen_rtsp_url")
+        if not value or any(char.isspace() or ord(char) < 32 for char in value):
+            return None
+        try:
+            url = urlsplit(value)
+        except ValueError:
+            return None
+        # Handed to the stream player: nothing but a plain RTSP address.
+        return value if url.scheme == "rtsp" and url.hostname and not url.username else None

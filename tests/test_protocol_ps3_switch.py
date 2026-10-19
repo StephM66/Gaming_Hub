@@ -28,6 +28,12 @@ def test_parse_cpursx_in_game() -> None:
     assert status.play_time == 3723
     assert status.firmware == "4.91 CEX Cobra 8.4"
     assert status.mac == "00:1F:A7:12:34:56"
+    assert (status.ip, status.network) == ("192.168.1.30", "LAN")
+    assert (status.memory_free, status.hdd_free) == (109.7, 117.5)
+    assert (status.fan_mode, status.fan_target) == ("dynamic", 68)
+    assert status.uptime == 1 * 86400 + 2 * 3600 + 10 * 60
+    assert status.runtime == 12 * 86400 + 3 * 3600 + 4 * 60 + 5
+    assert status.power_on_count == 1234
 
 
 def test_parse_cpursx_on_xmb() -> None:
@@ -38,6 +44,9 @@ def test_parse_cpursx_on_xmb() -> None:
     assert status.play_time is None
     assert status.firmware == "4.91 CEX PS3HEN 3.4.0"
     assert status.mac == "00:1F:A7:AB:CD:EF"
+    assert status.network == "WLAN"
+    assert (status.fan_mode, status.fan_target) == ("syscon", None)
+    assert status.uptime == 600
 
 
 def test_parse_cpursx_tolerates_garbage() -> None:
@@ -129,6 +138,29 @@ def test_switch_state_values_and_liveness() -> None:
     state.handle_status(heartbeat, retained=False, now=20)
     assert state.handle_status(offline, retained=False, now=21)
     assert not state.is_online(21)
+    # Everything else the sysmodule publishes.
+    for sensor, value in (
+        ("battery_health", "92.5"),
+        ("battery_voltage", "4123"),
+        ("charger_type", "enough_power"),
+        ("backlight", "OFF"),
+        ("volume", "40"),
+        ("audio_target", "headphone"),
+        ("player_1_controller", "handheld"),
+        ("player_2_controller", "none"),
+        ("screen_rtsp_url", "unknown"),
+    ):
+        state.handle_state(base + sensor, value, retained=True, now=22)
+    assert (state.battery_health, state.battery_voltage, state.charger) == (
+        92.5,
+        4123.0,
+        "enough_power",
+    )
+    assert (state.screen_on, state.volume, state.audio_output) == (False, 40.0, "headphone")
+    assert state.players == {"player_1": "handheld"}
+    assert state.stream_url is None
+    state.handle_state(base + "screen_rtsp_url", "rtsp://10.0.0.4:6666/", retained=False, now=23)
+    assert state.stream_url == "rtsp://10.0.0.4:6666/"
     # Back on the home menu: no game.
     state.handle_state(base + "game_running", "OFF", retained=False, now=30)
     assert state.is_online(30)

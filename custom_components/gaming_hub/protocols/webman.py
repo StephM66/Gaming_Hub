@@ -16,18 +16,69 @@ import aiohttp
 
 DEFAULT_PORT = 80
 
-_CPU = re.compile(r"CPU:\s*(\d+)\s*(?:°|&deg;|&#176;)\s*C", re.IGNORECASE)
-_RSX = re.compile(r"RSX:\s*(\d+)\s*(?:°|&deg;|&#176;)\s*C", re.IGNORECASE)
-_FAN = re.compile(r"cpursx\.ps3\?mode\"[^>]*>[^<]*?(\d+)\s*%")
+# Every quantifier is bounded: the page comes from the network and must not be able to make a
+# regular expression backtrack for long (it is parsed in the event loop).
+_CPU = re.compile(r"CPU:\s{0,8}(\d{1,3})\s{0,8}(?:°|&deg;|&#176;)\s{0,8}C", re.IGNORECASE)
+_RSX = re.compile(r"RSX:\s{0,8}(\d{1,3})\s{0,8}(?:°|&deg;|&#176;)\s{0,8}C", re.IGNORECASE)
+_FAN = re.compile(r"cpursx\.ps3\?mode\"[^>]{0,64}>[^<%]{0,64}?(\d{1,3})\s{0,4}%")
 _TITLE_ID = re.compile(r"/tpl/np/([A-Z0-9]{9})/")
-_TITLE = re.compile(r"/tpl/np/[A-Z0-9]{9}/[^\"]*\"[^>]*>[^<]*</a>\s*<a href=\"[^\"]*\">([^<]*)</a>")
-_ICON = re.compile(r"<img src=\"([^\"]+/ICON0\.PNG)\"", re.IGNORECASE)
-_PLAY = re.compile(
-    r"title=\"Play\">[^<]*</label>\s*(?:[^:<\d]*:\s*)?(?:(\d+)d\s*)?(\d+):(\d{2}):(\d{2})"
+_TITLE = re.compile(
+    r"/tpl/np/[A-Z0-9]{9}/[^\"]{0,200}\"[^>]{0,200}>[^<]{0,200}</a>\s{0,8}"
+    r"<a href=\"[^\"]{0,1000}\">([^<]{0,300})</a>"
 )
-_FIRMWARE = re.compile(r"href=\"/setup\.ps3\">\s*(?:NAND|NOR)?\s*([^<]*?)\s*<br>")
-_MAC = re.compile(r"MAC Addr\s*:\s*([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})")
+_ICON = re.compile(r"<img src=\"([^\"]{1,500}/ICON0\.PNG)\"", re.IGNORECASE)
+_DURATION = r"(?:(\d{1,5})d\s{0,4})?(\d{1,2}):(\d{2}):(\d{2})"
+_PLAY = re.compile(
+    r"title=\"Play\">[^<]{0,32}</label>\s{0,8}(?:[^:<\d]{0,16}:\s{0,8})?" + _DURATION
+)
+_FIRMWARE = re.compile(
+    r"href=\"/setup\.ps3\">\s{0,16}(?:NAND|NOR)?\s{0,16}([^<]{0,120}?)\s{0,16}<br>"
+)
+_MAC = re.compile(
+    r"MAC Addr\s{0,8}:\s{0,8}([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})"
+    r"(?:\s{0,8}-\s{0,8}([\d.]{7,15})\s{0,8}([A-Za-z]{1,8})?)?"
+)
 _VERSION_SUFFIX = re.compile(r"\s+\d{2}\.\d{2}$")
+_MEM = re.compile(r"MEM:\s{0,8}([\d,.' ]{1,15}?)\s{0,8}KB")
+_HDD = re.compile(r"HDD:\s{0,8}([\d,.' ]{1,15}?)\.(\d)\s{0,8}(GB|MB)")
+_TEMPS_LINK = re.compile(r"cpursx\.ps3\?up\">(.{0,400}?)</a>", re.DOTALL)
+_FAN_TARGET = re.compile(r"MAX:\s{0,8}(\d{1,3})")
+_STARTUP = re.compile(r"Startup:\s{0,8}" + _DURATION)
+_RUNTIME = re.compile(r"Runtime:\s{0,8}" + _DURATION)
+_POWER_ON = re.compile(r"([\d,.']{1,15})\s{0,8}ON\b")
+# A real /cpursx.ps3 page is about 10 KB.
+MAX_PAGE = 256 * 1024
+# webMAN chains commands with ";" and shows at most 200 characters.
+MAX_POPUP = 200
+
+
+def _seconds(match: re.Match[str] | None) -> int | None:
+    if match is None:
+        return None
+    days, hours, minutes, seconds = match.groups()
+    return int(days or 0) * 86400 + int(hours) * 3600 + int(minutes) * 60 + int(seconds)
+
+
+def _digits(value: str) -> int:
+    return int(re.sub(r"\D", "", value) or 0)
+
+
+def _fan_mode(page: str) -> tuple[str | None, int | None]:
+    """Fan policy shown next to the CPU temperature, and the target of dynamic mode."""
+    if (link := _TEMPS_LINK.search(page)) is None:
+        return None, None
+    text = link.group(1)
+    if "PS2 Mode" in text:
+        return "ps2", None
+    if "SYSCON" in text:
+        return "syscon", None
+    if "(AUTO)" in text:
+        return "auto", None
+    if target := _FAN_TARGET.search(text):
+        return "dynamic", int(target.group(1))
+    if "[FAN:" in text:
+        return "manual", None
+    return None, None
 
 
 class WebmanError(Exception):
@@ -48,6 +99,15 @@ class WebmanStatus:
     play_time: int | None = None
     firmware: str | None = None
     mac: str | None = None
+    ip: str | None = None
+    network: str | None = None  # LAN or WLAN
+    memory_free: float | None = None  # MB
+    hdd_free: float | None = None  # GB
+    fan_mode: str | None = None  # syscon, auto, dynamic, manual, ps2
+    fan_target: int | None = None  # °C, dynamic mode
+    uptime: int | None = None  # seconds since power-on
+    runtime: int | None = None  # seconds of use over the console's life
+    power_on_count: int | None = None
 
 
 def parse_cpursx(page: str) -> WebmanStatus:
@@ -57,10 +117,7 @@ def parse_cpursx(page: str) -> WebmanStatus:
         match = pattern.search(page)
         return int(match.group(1)) if match else None
 
-    play_time = None
-    if match := _PLAY.search(page):
-        days, hours, minutes, seconds = match.groups()
-        play_time = int(days or 0) * 86400 + int(hours) * 3600 + int(minutes) * 60 + int(seconds)
+    play_time = _seconds(_PLAY.search(page))
 
     title = None
     if match := _TITLE.search(page):
@@ -73,6 +130,14 @@ def parse_cpursx(page: str) -> WebmanStatus:
     title_id = match.group(1) if (match := _TITLE_ID.search(page)) else None
     icon = _ICON.search(page)
     mac = _MAC.search(page)
+    hdd_free = None
+    if match := _HDD.search(page):
+        hdd_free = float(f"{_digits(match.group(1))}.{match.group(2)}")
+        if match.group(3) == "MB":
+            hdd_free = round(hdd_free / 1024, 2)
+    fan_mode, fan_target = _fan_mode(page)
+    runtime_at = page.find("Runtime:")
+    power_on = _POWER_ON.search(page, runtime_at) if runtime_at >= 0 else None
     return WebmanStatus(
         cpu_temperature=number(_CPU),
         rsx_temperature=number(_RSX),
@@ -84,6 +149,15 @@ def parse_cpursx(page: str) -> WebmanStatus:
         play_time=play_time,
         firmware=firmware,
         mac=mac.group(1).upper() if mac else None,
+        ip=mac.group(2) if mac else None,
+        network=mac.group(3) if mac else None,
+        memory_free=round(_digits(m.group(1)) / 1024, 1) if (m := _MEM.search(page)) else None,
+        hdd_free=hdd_free,
+        fan_mode=fan_mode,
+        fan_target=fan_target,
+        uptime=_seconds(_STARTUP.search(page)),
+        runtime=_seconds(_RUNTIME.search(page)),
+        power_on_count=_digits(power_on.group(1)) if power_on else None,
     )
 
 
@@ -112,7 +186,12 @@ class WebmanClient:
             async with self._session.get(url, timeout=self._timeout) as response:
                 if response.status != 200:
                     raise WebmanError(f"HTTP {response.status} on {path}")
-                return (await response.read()).decode("utf-8", "replace")
+                body = bytearray()
+                async for chunk in response.content.iter_chunked(64 * 1024):
+                    body += chunk
+                    if len(body) > MAX_PAGE:
+                        raise WebmanError(f"answer to {path} is too large")
+                return body.decode("utf-8", "replace")
         except aiohttp.ServerDisconnectedError:
             # Shutdown and restart may drop the connection before answering.
             if tolerate_disconnect:
@@ -135,7 +214,9 @@ class WebmanClient:
 
     async def async_notify(self, message: str) -> None:
         """Show a notification on screen."""
-        await self._get(f"/popup.ps3?{quote(message, safe='')}")
+        # No ";" so that a message can never chain another webMAN command.
+        text = message.replace(";", ",")[:MAX_POPUP]
+        await self._get(f"/popup.ps3?{quote(text, safe='')}")
 
     async def async_shutdown(self) -> None:
         """Shut down through the system menu (same as the power button)."""
