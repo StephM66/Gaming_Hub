@@ -15,6 +15,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import (
     PERCENTAGE,
     EntityCategory,
+    Platform,
     UnitOfElectricPotential,
     UnitOfEnergy,
     UnitOfInformation,
@@ -23,11 +24,14 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .const import CONF_KIND, SUMMARY
 from .coordinator import ConsoleData, GamingHubConfigEntry, GamingHubCoordinator
 from .entity import GamingHubEntity
 from .parental import ParentalStatus
+from .summary import SUMMARY_SENSORS, SummarySensor
 
 PARALLEL_UPDATES = 0
 
@@ -57,7 +61,6 @@ HUB_SENSORS: tuple[HubSensorDescription, ...] = (
         suggested_display_precision=1,
         value_fn=lambda data: data.power,
         exists_fn=lambda coordinator: coordinator.has_power,
-        attributes_fn=lambda data: {"source": "measured" if data.power_measured else "estimated"},
     ),
     HubSensorDescription(
         key="energy",
@@ -75,6 +78,22 @@ HUB_SENSORS: tuple[HubSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfTime.MINUTES,
         suggested_display_precision=0,
         value_fn=lambda data: round(data.playtime / 60, 1),
+    ),
+    HubSensorDescription(
+        key="playtime_week",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        suggested_display_precision=1,
+        value_fn=lambda data: round(data.playtime_week / 3600, 2),
+    ),
+    HubSensorDescription(
+        key="playtime_month",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        suggested_display_precision=1,
+        value_fn=lambda data: round(data.playtime_month / 3600, 2),
     ),
     HubSensorDescription(
         key="parental_status",
@@ -289,10 +308,20 @@ async def async_setup_entry(
     entry: GamingHubConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
+    if entry.data.get(CONF_KIND) == SUMMARY:
+        async_add_entities(SummarySensor(entry, description) for description in SUMMARY_SENSORS)
+        return
     coordinator = entry.runtime_data
     descriptions = [d for d in HUB_SENSORS if d.exists_fn(coordinator)]
     descriptions += [DRIVER_SENSORS[key] for key in coordinator.sensor_keys]
-    async_add_entities(HubSensor(coordinator, description) for description in descriptions)
+    entities = [HubSensor(coordinator, description) for description in descriptions]
+    # Sensors no longer provided (power and energy once the plug is unlinked) are removed.
+    registry = er.async_get(hass)
+    wanted = {entity.unique_id for entity in entities}
+    for stale in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if stale.domain == Platform.SENSOR and stale.unique_id not in wanted:
+            registry.async_remove(stale.entity_id)
+    async_add_entities(entities)
 
 
 class HubSensor(GamingHubEntity, SensorEntity):

@@ -11,12 +11,15 @@ from homeassistant.core import HomeAssistant
 from .const import (
     CONF_ACCOUNT_ID,
     CONF_HOST_ID,
+    CONF_KIND,
     CONF_NPSSO,
     CONF_PASSCODE,
     CONF_REGIST_KEY,
     CONF_RP_KEY,
+    SUMMARY,
 )
 from .coordinator import GamingHubConfigEntry
+from .summary import loaded_consoles
 
 # Bug reports are public: keys and tokens, and what identifies the person or the console.
 # Local addresses stay, they are needed to understand a console that does not answer.
@@ -38,6 +41,8 @@ TO_REDACT = {
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: GamingHubConfigEntry
 ) -> dict[str, Any]:
+    if entry.data.get(CONF_KIND) == SUMMARY:
+        return {"consoles": [name for name, _ in loaded_consoles(hass)]}
     coordinator = entry.runtime_data
     data = coordinator.data
     return async_redact_data(

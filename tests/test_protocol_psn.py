@@ -71,6 +71,10 @@ def test_parse_status() -> None:
     assert (ps5.online, ps5.title, ps5.title_id) == (True, "Horizon Forbidden West", "PPSA01521_00")
     assert ps5.image == "https://image.api.playstation.com/horizon.png"
     assert status.sessions["PS3"].title == "Journey"
+    # Playing on a PS5: the legacy profile says offline, the current presence is right.
+    legacy_offline = {"profile": {**PROFILE["profile"], "primaryOnlineStatus": "offline"}}
+    assert parse_status(legacy_offline, PRESENCE).online_status == "online"
+    assert parse_status(legacy_offline, None).online_status == "offline"
     offline = parse_status({"profile": {"accountId": "1"}}, None)
     assert offline == PsnStatus(account_id="1", online_id="")
 

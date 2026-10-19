@@ -27,7 +27,12 @@ import hmac
 import os
 import struct
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+
+try:  # cryptography 47+ moved CFB with the other legacy modes
+    from cryptography.hazmat.decrepit.ciphers.modes import CFB
+except ImportError:
+    from cryptography.hazmat.primitives.ciphers.modes import CFB
 
 from .ddp import local_address, resolve_ipv4
 from .rp_keys import (
@@ -135,7 +140,7 @@ def _iv(nonce: bytes, counter: int) -> bytes:
 
 
 def _cfb(key: bytes, iv: bytes, data: bytes, *, decrypt: bool = False) -> bytes:
-    cipher = Cipher(algorithms.AES(key), modes.CFB(iv))
+    cipher = Cipher(algorithms.AES(key), CFB(iv))
     context = cipher.decryptor() if decrypt else cipher.encryptor()
     return context.update(data) + context.finalize()
 

@@ -2,7 +2,9 @@
   "domain": "gaming_hub",
   "name": "Gaming Hub",
   "after_dependencies": [
-    "mqtt"
+    "energy",
+    "mqtt",
+    "recorder"
   ],
   "codeowners": [
     "@StephM66"
@@ -16,5 +18,5 @@
     "switch_ha/+/current_game_id"
   ],
   "requirements": [],
-  "version": "0.2.0"
+  "version": "0.3.0"
 }

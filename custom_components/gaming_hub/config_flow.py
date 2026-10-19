@@ -8,6 +8,7 @@ from typing import Any
 
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
+    ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
@@ -16,6 +17,7 @@ from homeassistant.const import Platform
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
@@ -36,6 +38,8 @@ from .const import (
     CONF_BLOCK_ENTITY,
     CONF_CLIENT_ID,
     CONF_DISCOVERY_PREFIX,
+    CONF_ENERGY_SOURCE,
+    CONF_HIDE_SOURCES,
     CONF_HOST,
     CONF_HOST_ID,
     CONF_IMAGE_TEMPLATE,
@@ -53,16 +57,14 @@ from .const import (
     CONF_SOURCE_ENTITY,
     CONF_TURN_OFF_ENTITY,
     CONF_TURN_ON_ENTITY,
-    CONF_WATTS_IDLE,
-    CONF_WATTS_PLAYING,
-    CONF_WATTS_STANDBY,
     DEFAULT_SWITCH_IMAGE_TEMPLATE,
     DOMAIN,
-    POWER_PROFILES,
     PS5_MQTT_CREDENTIALS,
+    SUMMARY,
     ConsoleKind,
     LinkedPreset,
 )
+from .consumption import plug_energy_sensor
 from .coordinator import PSN_PLATFORMS, profile_key
 from .protocols import ddp, remoteplay
 from .protocols import switch_assistant as sa
@@ -121,10 +123,23 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry) -> GamingHubOptionsFlow:
         return GamingHubOptionsFlow()
 
+    @classmethod
+    @callback
+    def async_supports_options_flow(cls, config_entry: ConfigEntry) -> bool:
+        return config_entry.data.get(CONF_KIND) != SUMMARY
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
-            step_id="user", menu_options=[kind.value for kind in ConsoleKind]
+            step_id="user", menu_options=[*(kind.value for kind in ConsoleKind), SUMMARY]
         )
+
+    async def async_step_summary(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Statistics across all the consoles (once)."""
+        await self.async_set_unique_id(SUMMARY)
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(title="Gaming Hub", data={CONF_KIND: SUMMARY})
 
     def _create(self) -> ConfigFlowResult:
         return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
@@ -251,6 +266,8 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
         self._data = dict(entry.data)
+        if entry.data[CONF_KIND] == SUMMARY:
+            return self.async_abort(reason="reconfigure_unsupported")
         if entry.data[CONF_KIND] == ConsoleKind.PS5:
             return self.async_show_menu(step_id="reconfigure", menu_options=["psn", "ps5_pairing"])
         if PSN_PLATFORMS.get(profile_key(self._data)):
@@ -445,7 +462,10 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class GamingHubOptionsFlow(OptionsFlow):
-    """Links to other entities and the power profile."""
+    """Links to other entities: power sensor, commands, parental block."""
+
+    def __init__(self) -> None:
+        self._options: dict[str, Any] = {}
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self.config_entry
@@ -453,8 +473,10 @@ class GamingHubOptionsFlow(OptionsFlow):
             if entry.data[CONF_KIND] == ConsoleKind.SWITCH:
                 # An empty template disables artwork instead of restoring the default.
                 user_input.setdefault(CONF_IMAGE_TEMPLATE, "")
+            self._options = user_input
+            if user_input.get(CONF_POWER_ENTITY):
+                return await self.async_step_energy()
             return self.async_create_entry(data=user_input)
-        default = POWER_PROFILES[profile_key(dict(entry.data))]
         fields: dict[Any, Any] = {
             vol.Optional(CONF_POWER_ENTITY): EntitySelector(
                 EntitySelectorConfig(domain=Platform.SENSOR, device_class="power")
@@ -468,9 +490,6 @@ class GamingHubOptionsFlow(OptionsFlow):
             vol.Optional(CONF_BLOCK_ENTITY): EntitySelector(
                 EntitySelectorConfig(domain=ACTION_DOMAINS)
             ),
-            vol.Required(CONF_WATTS_PLAYING, default=default.playing): _watts(),
-            vol.Required(CONF_WATTS_IDLE, default=default.idle): _watts(),
-            vol.Required(CONF_WATTS_STANDBY, default=default.standby): _watts(),
         }
         if entry.data[CONF_KIND] == ConsoleKind.SWITCH:
             fields[vol.Optional(CONF_IMAGE_TEMPLATE)] = str
@@ -478,4 +497,28 @@ class GamingHubOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(vol.Schema(fields), suggested),
+        )
+
+    async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """With a plug: the energy meter the console replaces, so nothing is counted twice."""
+        if user_input is not None:
+            return self.async_create_entry(data={**self._options, **user_input})
+        options = self.config_entry.options
+        power = self._options[CONF_POWER_ENTITY]
+        suggested = {
+            CONF_ENERGY_SOURCE: options.get(CONF_ENERGY_SOURCE)
+            if options.get(CONF_POWER_ENTITY) == power
+            else plug_energy_sensor(self.hass, power),
+            CONF_HIDE_SOURCES: options.get(CONF_HIDE_SOURCES, True),
+        }
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_ENERGY_SOURCE): EntitySelector(
+                    EntitySelectorConfig(domain=Platform.SENSOR, device_class="energy")
+                ),
+                vol.Required(CONF_HIDE_SOURCES): BooleanSelector(),
+            }
+        )
+        return self.async_show_form(
+            step_id="energy", data_schema=self.add_suggested_values_to_schema(schema, suggested)
         )

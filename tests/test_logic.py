@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, time, timedelta
 
-from custom_components.gaming_hub.models import ConsoleSnapshot, PowerProfile, PowerState
+from custom_components.gaming_hub.models import ConsoleSnapshot, PowerState
 from custom_components.gaming_hub.parental import (
     BlockReason,
     Notice,
@@ -23,14 +23,10 @@ def at(hour: int, minute: int = 0, second: int = 0) -> datetime:
     return DAY.replace(hour=hour, minute=minute, second=second)
 
 
-def test_power_profile() -> None:
-    profile = PowerProfile(playing=200, idle=60, standby=1.5)
-    assert profile.estimate(ConsoleSnapshot(PowerState.ON, title="Astro Bot")) == 200
-    assert profile.estimate(ConsoleSnapshot(PowerState.ON, in_game=True)) == 200
-    assert profile.estimate(ConsoleSnapshot(PowerState.ON)) == 60
-    assert profile.estimate(ConsoleSnapshot(PowerState.STANDBY)) == 1.5
-    assert profile.estimate(ConsoleSnapshot(PowerState.OFF)) == 1.5
-    assert PowerProfile().estimate(ConsoleSnapshot(PowerState.ON)) is None
+def test_playing() -> None:
+    assert ConsoleSnapshot(PowerState.ON, title="Astro Bot").playing
+    assert ConsoleSnapshot(PowerState.ON, in_game=True).playing
+    assert not ConsoleSnapshot(PowerState.ON).playing
     # A title reported while the console is in standby does not mean playing.
     assert not ConsoleSnapshot(PowerState.STANDBY, title="x").playing
 
@@ -139,3 +135,34 @@ def test_settings_round_trip() -> None:
     settings = ParentalSettings(True, 90, time(8, 30), time(21), ParentalAction.NOTIFY, 10)
     assert ParentalSettings.from_dict(settings.as_dict()) == settings
     assert ParentalSettings.from_dict(None) == ParentalSettings()
+
+
+def test_usage_week_and_month() -> None:
+    usage = UsageTracker()
+    sunday = datetime(2026, 10, 25, 23, 59, tzinfo=UTC)  # end of ISO week 43
+    usage.update(sunday, active=True, watts=None)
+    usage.update(sunday + timedelta(seconds=30), active=True, watts=None)
+    assert (usage.week, usage.week_playtime, usage.month_playtime) == ("2026-W43", 30, 30)
+    usage.update(sunday + timedelta(seconds=90), active=True, watts=None)  # Monday 00:00:30
+    # The 30 s before midnight stay in week 43; week 44 starts with the 30 s after.
+    assert (usage.week, usage.week_playtime, usage.month_playtime) == ("2026-W44", 30, 90)
+
+    usage = UsageTracker()
+    last_evening = datetime(2026, 10, 31, 23, 59, 30, tzinfo=UTC)  # same week as November 1
+    usage.update(last_evening, active=True, watts=None)
+    usage.update(last_evening + timedelta(seconds=60), active=True, watts=None)
+    assert (usage.month, usage.month_playtime, usage.week_playtime) == ("2026-11", 30, 60)
+    restored = UsageTracker.from_dict(usage.as_dict())
+    assert (restored.week, restored.week_playtime, restored.month, restored.month_playtime) == (
+        "2026-W44",
+        60,
+        "2026-11",
+        30,
+    )
+
+
+def test_usage_saved_before_weeks_existed() -> None:
+    """After the update, the week and the month start with what is known: today."""
+    usage = UsageTracker.from_dict({"day": "2026-10-19", "playtime": 600, "energy": 1.0})
+    usage.update(datetime(2026, 10, 19, 15, tzinfo=UTC), active=False, watts=None)
+    assert (usage.playtime, usage.week_playtime, usage.month_playtime) == (600, 600, 600)

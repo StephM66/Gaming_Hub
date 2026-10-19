@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from homeassistant.config_entries import SOURCE_MQTT, SOURCE_USER
+from homeassistant.config_entries import SOURCE_MQTT, SOURCE_RECONFIGURE, SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.mqtt import MqttServiceInfo
@@ -35,7 +35,7 @@ def no_setup():
 async def _menu(hass: HomeAssistant, choice: str):
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["ps5", "ps3", "switch", "linked"]
+    assert result["menu_options"] == ["ps5", "ps3", "switch", "linked", "summary"]
     return await hass.config_entries.flow.async_configure(
         result["flow_id"], {"next_step_id": choice}
     )
@@ -264,16 +264,15 @@ async def test_options(hass: HomeAssistant, ps5_entry) -> None:
     assert result["type"] is FlowResultType.FORM
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {
-            "power_entity": "sensor.prise_ps5_power",
-            "watts_playing": 180,
-            "watts_idle": 60,
-            "watts_standby": 3.5,
-        },
+        {"power_entity": "sensor.prise_ps5_power"},
+    )
+    # A plug was named: the hub offers to take over its energy meter.
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "energy")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"hide_sources": False}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert ps5_entry.options["power_entity"] == "sensor.prise_ps5_power"
-    assert ps5_entry.options["watts_standby"] == 3.5
+    assert ps5_entry.options == {"power_entity": "sensor.prise_ps5_power", "hide_sources": False}
 
 
 async def test_ps5_psn_account_fills_the_pairing(hass: HomeAssistant, mock_ddp) -> None:
@@ -318,3 +317,19 @@ async def test_ps3_reconfigure_links_psn_later(hass: HomeAssistant, ps3_entry) -
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {"npsso": "abc"})
     assert (result["type"], result["reason"]) == (FlowResultType.ABORT, "reconfigure_successful")
     assert ps3_entry.data["account_id"] == "1234567890123456789"
+
+
+async def test_summary_entry(hass: HomeAssistant) -> None:
+    with patch(SETUP, AsyncMock(return_value=True)):
+        result = await _menu(hass, "summary")
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+        assert (result["title"], result["data"]) == ("Gaming Hub", {"kind": "summary"})
+        entry = result["result"]
+        # Only one, without options or reconfiguration.
+        result = await _menu(hass, "summary")
+        assert (result["type"], result["reason"]) == (FlowResultType.ABORT, "already_configured")
+    assert not entry.supports_options
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id}
+    )
+    assert result["reason"] == "reconfigure_unsupported"

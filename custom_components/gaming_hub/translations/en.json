@@ -8,7 +8,8 @@
           "ps5": "PlayStation 5",
           "ps3": "PlayStation 3 (webMAN MOD)",
           "switch": "Nintendo Switch (Switch Assistant)",
-          "linked": "Xbox or another console already in Home Assistant"
+          "linked": "Xbox or another console already in Home Assistant",
+          "summary": "Statistics of all the consoles"
         }
       },
       "ps5": {
@@ -126,23 +127,32 @@
   "options": {
     "step": {
       "init": {
-        "title": "Links and consumption",
+        "title": "Links",
         "data": {
           "power_entity": "Power sensor (smart plug)",
           "turn_on_entity": "Turn on with",
           "turn_off_entity": "Turn off with",
           "block_entity": "Parental block with",
-          "watts_playing": "Estimated power while playing",
-          "watts_idle": "Estimated power on, without a game",
-          "watts_standby": "Estimated power in standby or off",
           "image_template": "Artwork URL ({title_id})"
         },
         "data_description": {
-          "power_entity": "Measured power replaces the estimate.",
+          "power_entity": "A smart plug powering the console: the Power and Energy sensors only exist with it.",
           "turn_on_entity": "Script, button or switch replacing the native command (PS3: HDMI-CEC, Bluetooth, button pusher).",
           "turn_off_entity": "Script, button or switch replacing the native command.",
           "block_entity": "Activated instead of turning the console off when play time is over, e.g. the Nintendo Switch Parental Controls suspend switch.",
           "image_template": "Leave empty to disable artwork."
+        }
+      },
+      "energy": {
+        "title": "Existing consumption",
+        "description": "The console now has its own Power and Energy sensors. If the plug, or a helper built on it, already has an energy meter, pick it here: its history moves to the console's Energy sensor, which also replaces it on the Energy dashboard, so nothing is counted twice. Leave empty to take nothing over.",
+        "data": {
+          "energy_source": "Energy meter to take over",
+          "hide_sources": "Hide the plug's sensors and the meter taken over"
+        },
+        "data_description": {
+          "energy_source": "The history is moved, not copied: the meter taken over goes on alone, without its past.",
+          "hide_sources": "They show again when the plug is unlinked or the console deleted."
         }
       }
     }
@@ -220,6 +230,12 @@
       },
       "playtime_today": {
         "name": "Play time today"
+      },
+      "playtime_week": {
+        "name": "Play time this week"
+      },
+      "playtime_month": {
+        "name": "Play time this month"
       },
       "parental_status": {
         "name": "Parental control",
@@ -332,6 +348,12 @@
       },
       "trophy_level": {
         "name": "Trophy level"
+      },
+      "consoles_on": {
+        "name": "Consoles on"
+      },
+      "games": {
+        "name": "Games being played"
       }
     },
     "switch": {

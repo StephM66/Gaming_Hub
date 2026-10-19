@@ -31,9 +31,10 @@ Ce qui reste est imposé par les consoles, pas par le hub :
 - pour la Xbox, que je n'ai pas pu tester faute de console, le hub s'appuie sur une entité
   existante (intégration Xbox officielle) en attendant un pilote natif.
 
-> **État : 0.2.0, à valider sur console.** Les protocoles sont testés contre des consoles et des
-> serveurs simulés et, pour la PS5, octet par octet contre playactor (le moteur de PS5-MQTT).
-> Aucun essai n'a encore été fait sur une vraie console : voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
+> **État : 0.3.0.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
+> PlayStation Network, allumage et mise en repos. PS3 et Switch restent à essayer : voir
+> [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md). Les protocoles sont aussi testés contre des
+> consoles et des serveurs simulés et, pour la PS5, octet par octet contre playactor.
 
 ## Avertissement
 
@@ -66,7 +67,7 @@ Sécurité et signalement des failles : [`SECURITY.md`](SECURITY.md).
 | Données de la console | version du système | températures CPU/RSX, ventilateur (vitesse, mode, cible), durée de la partie, mémoire et disque libres, allumée depuis, firmware, réseau, utilisation totale, démarrages | batterie (niveau, santé, température, tension), charge, chargeur, écran, luminosité, volume, sortie audio, manettes par joueur | — |
 | Compte PlayStation Network² | statut, niveau et nombre de trophées, PlayStation Plus | idem | — | idem (PS4) |
 | Contrôle parental du hub | ✅ | ✅ | ✅ (+ suspension Nintendo⁴) | ✅ |
-| Consommation | mesurée ou estimée | mesurée ou estimée | mesurée ou estimée | mesurée ou estimée |
+| Consommation | avec une prise connectée | idem | idem | idem |
 
 1. Une PS3 et une Switch ne s'allument pas par le réseau. On associe un script, un bouton ou un
    interrupteur dans les options : HDMI-CEC via la TV, Bluetooth, pousse-bouton (SwitchBot…).
@@ -161,16 +162,16 @@ PlayStation 4, PC / Steam Deck, console rétro, autre) et l'entité source :
 - un **interrupteur**, un capteur binaire, un `input_boolean` ou un `device_tracker` : allumée ou éteinte ;
 - un **capteur de puissance** : allumée au-delà d'un seuil, pratique pour une console rétro sur prise connectée.
 
-Le type ne sert qu'au fabricant affiché et aux puissances estimées par défaut.
+Le type ne sert qu'au fabricant et au modèle affichés.
 
 ## Options (toutes consoles)
 
 | Option | Usage |
 |---|---|
-| Capteur de puissance | Puissance mesurée (prise connectée), qui remplace l'estimation. |
+| Capteur de puissance | Prise connectée en amont de la console : ajoute « Puissance » et « Énergie ». |
+| Consommation existante | Compteur d'énergie de la prise ou d'une entrée à reprendre, capteurs à masquer (voir Consommation). |
 | Allumer avec / Éteindre avec | Script, scène, bouton ou interrupteur qui remplace la commande native. |
 | Blocage parental avec | Activé à la place de l'extinction quand le temps de jeu est écoulé. |
-| Puissances estimées | En jeu, allumée sans jeu, en veille ou éteinte (W). Valeurs indicatives par défaut. |
 | URL de la jaquette (Switch) | Modèle avec `{title_id}` ; vide pour désactiver. |
 
 ## Contrôle parental
@@ -212,35 +213,55 @@ Capteurs : « Temps de jeu aujourd'hui », « Temps de jeu restant », « Contr�
 
 ## Consommation
 
-« Puissance » (W) vient du capteur de puissance associé ou, à défaut, d'une estimation selon
-l'état (en jeu, allumée, veille). « Énergie » (kWh, cumulée) peut s'ajouter au tableau de bord
-Énergie comme appareil individuel. Valeurs estimées par défaut :
+Facultative : il faut une prise connectée en amont de la console, à associer dans les options
+(« Capteur de puissance »). La console gagne alors « Puissance » (W, celle de la prise) et
+« Énergie » (kWh, cumulée), que l'on peut ajouter au tableau de bord Énergie comme appareil
+individuel. Sans prise, ces deux capteurs n'existent pas : une estimation serait trop
+approximative (les modèles et les jeux varient beaucoup). Dissocier la prise les supprime.
 
-| Console | En jeu | Allumée sans jeu | Veille / éteinte |
-|---|---|---|---|
-| PS5 | 200 W | 70 W | 1,5 W |
-| PS3 | 90 W | 75 W | 0,5 W |
-| Switch (dock) | 12 W | 7 W | 0,5 W |
-| Xbox | 150 W | 50 W | 10 W |
-| PS4 | 140 W | 60 W | 5 W |
+**Ne rien compter deux fois.** Si la prise, ou une entrée créée à partir d'elle (intégrale,
+compteur de consommation…), a déjà un compteur d'énergie, les options proposent juste après de
+le reprendre (celui de la prise est présélectionné) :
 
-Une prise connectée donne la vraie valeur ; les modèles et les jeux varient beaucoup (une PS3
-« fat » consomme plus du double d'une Slim).
+- son historique à long terme passe sur « Énergie » de la console : les graphiques et le tableau
+  Énergie gardent le passé, et le compteur de la console continue depuis son total ;
+- dans le tableau Énergie, la console le remplace parmi les appareils individuels ;
+- les capteurs de la prise et le compteur repris sont masqués (facultatif). Ils réapparaissent
+  si la prise est dissociée ou la console supprimée.
+
+L'historique est déplacé, pas copié : le compteur repris continue seul, sans son passé. La
+reprise n'a lieu qu'une fois par console.
 
 ## Entités par console
 
 | Entité | Remarque |
 |---|---|
-| `media_player` | état, jeu, jaquette, allumer/éteindre |
+| `media_player` | état, jeu, jaquette, allumer/éteindre ; en mode repos l'état est `off` et l'attribut `power_state` vaut `standby` |
 | Jeu en cours, En jeu | pour les automatisations et l'historique |
-| Puissance, Énergie | si un capteur est associé ou si une estimation existe |
-| Temps de jeu aujourd'hui, Temps de jeu restant, Contrôle parental | |
+| Puissance, Énergie | seulement avec une prise connectée associée |
+| Temps de jeu aujourd'hui, cette semaine, ce mois-ci | la semaine va du lundi au dimanche |
+| Temps de jeu restant, Contrôle parental | |
 | Contrôle parental, Temps de jeu quotidien, Préavis, plage horaire, action | réglages (catégorie configuration) |
 | Message à l'écran, Redémarrer | PS3 et Switch |
 | Quitter le jeu | PS3 |
 | Écran (caméra) | Switch, pendant les jeux |
 | Données de la console | voir le tableau « Ce que fait chaque console » ; les diagnostics rarement utiles (adresse IP, utilisation totale, démarrages, tension batterie) sont créés désactivés |
 | PlayStation Network, Niveau de trophées, PlayStation Plus | si le compte PSN est associé (PS5, PS3, PS4) |
+
+## Statistiques de toutes les consoles
+
+Ajouter une intégration → **Gaming Hub** → « Statistiques de toutes les consoles » (une seule
+fois). Un appareil « Gaming Hub » additionne alors toutes les consoles du hub :
+
+| Capteur | Valeur | Attributs |
+|---|---|---|
+| Temps de jeu aujourd'hui | minutes, toutes consoles | minutes par console |
+| Temps de jeu cette semaine, ce mois-ci | heures, toutes consoles | heures par console |
+| Consoles allumées | nombre | liste des consoles allumées |
+| Jeux en cours | titres joués en ce moment | jeu par console |
+
+Le temps de jeu compte le temps où la console est allumée. Les graphiques de statistiques de
+Home Assistant donnent ensuite les totaux par jour, semaine ou mois sur la durée.
 
 ## Architecture
 
@@ -251,7 +272,9 @@ custom_components/gaming_hub/
   drivers/     un pilote par type : ps5, ps3, switch, linked (Xbox et autres)
   coordinator  état du pilote + entités liées + temps de jeu, énergie, contrôle parental
   parental     règles du contrôle parental (pures, testées sans Home Assistant)
-  usage        temps de jeu du jour et énergie cumulée
+  usage        temps de jeu (jour, semaine, mois) et énergie cumulée
+  consumption  reprise du compteur d'énergie d'une prise (historique, tableau Énergie)
+  summary      statistiques de toutes les consoles
   config_flow  ajout par type, découverte MQTT des Switch, appairage PS5, options
 ```
 

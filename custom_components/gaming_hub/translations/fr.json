@@ -8,7 +8,8 @@
           "ps5": "PlayStation 5",
           "ps3": "PlayStation 3 (webMAN MOD)",
           "switch": "Nintendo Switch (Switch Assistant)",
-          "linked": "Xbox ou autre console déjà présente dans Home Assistant"
+          "linked": "Xbox ou autre console déjà présente dans Home Assistant",
+          "summary": "Statistiques de toutes les consoles"
         }
       },
       "ps5": {
@@ -126,23 +127,32 @@
   "options": {
     "step": {
       "init": {
-        "title": "Liens et consommation",
+        "title": "Liens",
         "data": {
           "power_entity": "Capteur de puissance (prise connectée)",
           "turn_on_entity": "Allumer avec",
           "turn_off_entity": "Éteindre avec",
           "block_entity": "Blocage parental avec",
-          "watts_playing": "Puissance estimée en jeu",
-          "watts_idle": "Puissance estimée allumée, sans jeu",
-          "watts_standby": "Puissance estimée en veille ou éteinte",
           "image_template": "URL de la jaquette ({title_id})"
         },
         "data_description": {
-          "power_entity": "La puissance mesurée remplace l'estimation.",
+          "power_entity": "Une prise connectée en amont de la console : les capteurs Puissance et Énergie n'existent qu'avec elle.",
           "turn_on_entity": "Script, bouton ou interrupteur qui remplace la commande native (PS3 : HDMI-CEC, Bluetooth, pousse-bouton).",
           "turn_off_entity": "Script, bouton ou interrupteur qui remplace la commande native.",
           "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé, par exemple l'interrupteur de suspension de l'intégration Contrôle parental Nintendo Switch.",
           "image_template": "Laisser vide pour ne pas afficher de jaquette."
+        }
+      },
+      "energy": {
+        "title": "Consommation existante",
+        "description": "La console a maintenant ses capteurs Puissance et Énergie. Si la prise, ou une entrée créée à partir d'elle, a déjà un compteur d'énergie, le désigner ici : son historique passe sur l'Énergie de la console, qui le remplace aussi dans le tableau Énergie, pour ne rien compter deux fois. Laisser vide pour ne rien reprendre.",
+        "data": {
+          "energy_source": "Compteur d'énergie à reprendre",
+          "hide_sources": "Masquer les capteurs de la prise et le compteur repris"
+        },
+        "data_description": {
+          "energy_source": "L'historique est déplacé, pas copié : le compteur repris continue seul, sans son passé.",
+          "hide_sources": "Ils réapparaissent si la prise est dissociée ou la console supprimée."
         }
       }
     }
@@ -220,6 +230,12 @@
       },
       "playtime_today": {
         "name": "Temps de jeu aujourd'hui"
+      },
+      "playtime_week": {
+        "name": "Temps de jeu cette semaine"
+      },
+      "playtime_month": {
+        "name": "Temps de jeu ce mois-ci"
       },
       "parental_status": {
         "name": "Contrôle parental",
@@ -332,6 +348,12 @@
       },
       "trophy_level": {
         "name": "Niveau de trophées"
+      },
+      "consoles_on": {
+        "name": "Consoles allumées"
+      },
+      "games": {
+        "name": "Jeux en cours"
       }
     },
     "switch": {
