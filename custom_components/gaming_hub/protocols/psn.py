@@ -117,7 +117,10 @@ def parse_status(profile: dict[str, Any], presence: dict[str, Any] | None) -> Ps
     return PsnStatus(
         account_id=str(data.get("accountId", "")),
         online_id=str(data.get("onlineId", "")),
-        online_status=str(data.get("primaryOnlineStatus") or "offline"),
+        # The legacy profile only follows PS3/PS4/Vita: a PS5 player reads "offline" there.
+        online_status=str(
+            primary.get("onlineStatus") or data.get("primaryOnlineStatus") or "offline"
+        ),
         avatar_url=_image(avatars[0].get("avatarUrl")) if avatars else None,
         plus=bool(data.get("plus")),
         trophy_level=as_int(trophies.get("level")),
