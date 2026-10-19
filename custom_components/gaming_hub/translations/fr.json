@@ -6,9 +6,9 @@
         "title": "Ajouter une console",
         "menu_options": {
           "ps5": "PlayStation 5",
-          "ps3": "PlayStation 3 (webMAN MOD)",
-          "switch": "Nintendo Switch (Switch Assistant)",
-          "linked": "Xbox ou autre console déjà présente dans Home Assistant",
+          "ps3": "PlayStation 3 modifiée (webMAN MOD)",
+          "switch": "Nintendo Switch modifiée (Switch Assistant)",
+          "linked": "Xbox, PS4 ou autre console (intégration existante ou prise)",
           "summary": "Statistiques de toutes les consoles"
         }
       },

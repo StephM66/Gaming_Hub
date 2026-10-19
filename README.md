@@ -7,34 +7,51 @@
 [![tests](https://github.com/StephM66/Gaming_Hub/actions/workflows/tests.yml/badge.svg)](https://github.com/StephM66/Gaming_Hub/actions/workflows/tests.yml)
 [![Licence MIT](https://img.shields.io/github/license/StephM66/Gaming_Hub)](LICENSE)
 
-Intégration Home Assistant qui réunit les consoles de salon dans un seul hub : allumage et
-extinction, jeu en cours (titre et jaquette), contrôle parental commun, consommation électrique.
+Intégration Home Assistant qui réunit les consoles de jeu dans un seul hub : état, jeu en
+cours (titre et jaquette), temps de jeu, contrôle parental commun, consommation électrique, et
+allumage ou extinction quand la console le permet.
 
-## Une seule chose à installer
+> **Ce que le hub sait faire dépend de chaque console.** Sans aucune modification, seule la
+> **PlayStation 5** est entièrement pilotée. Les pilotes natifs **PS3 et Switch ne fonctionnent
+> qu'avec une console modifiée** (firmware personnalisé), avec les contraintes et les risques
+> décrits plus bas. Les tableaux suivants disent exactement ce qui fonctionne, et à quelle
+> condition.
 
-Dans Home Assistant, **Gaming Hub suffit**. Il remplace PS5-MQTT (App) et l'intégration PS3, et
-intègre lui-même le compte PlayStation Network. Pas d'App, pas d'autre intégration, pas de
-dépendance Python externe. Chaque console est un appareil du hub.
+## Sans modifier la console
 
-| | Dans Home Assistant | Sur la console |
+| Console | Liaison | Allumer, éteindre | État | Jeu en cours et jaquette | Temps de jeu, contrôle parental |
+|---|---|---|---|---|---|
+| PlayStation 5 | réseau local, compte PSN facultatif | ✅ allumage, mode repos | ✅ | ✅ via le compte PSN | ✅ |
+| Xbox, PlayStation 4 | intégration officielle de Home Assistant, liée au hub | selon l'intégration | selon l'intégration | selon l'intégration | ✅ |
+| Toute autre console (Switch, PS3, rétro…) | prise connectée ou entité existante, liée au hub | ❌ par le réseau ; un script peut le faire (HDMI-CEC via la TV, pousse-bouton) | allumée ou éteinte, d'après la consommation ou l'entité | ❌ | temps de jeu ✅ ; blocage seulement par un script |
+
+Pour la Switch, l'intégration officielle
+[Contrôle parental Nintendo Switch](https://www.home-assistant.io/integrations/nintendo_parental_controls/)
+fonctionne sans modification ; le hub peut utiliser sa suspension du jeu comme blocage parental.
+Une prise en charge native par le compte Nintendo (jeu en cours, temps de jeu officiel) est à
+l'étude, sans allumage ni extinction : Nintendo ne le permet pas.
+
+## Consoles modifiées (à vos risques)
+
+Pour qui a **déjà** une console modifiée, deux pilotes natifs vont plus loin. Le hub n'aide pas à
+modifier une console et ne le recommande pas.
+
+| | PlayStation 3 | Nintendo Switch |
 |---|---|---|
-| PlayStation 5 | Gaming Hub | rien (Lecture à distance activée dans les paramètres) |
-| PlayStation 3 | Gaming Hub | webMAN MOD (CFW ou PS3HEN) |
-| Nintendo Switch | Gaming Hub + un broker MQTT (l'App Mosquitto) | Switch Assistant (Atmosphère) |
-| Xbox et autres (facultatif) | Gaming Hub + l'intégration de la console | — |
+| Sur la console | webMAN MOD, sur un firmware personnalisé (CFW) ou PS3HEN | Atmosphère et Switch Assistant |
+| Dans Home Assistant | rien de plus | un broker MQTT (l'App Mosquitto) |
+| Contraintes | PS3HEN est à réactiver à chaque allumage, sinon le hub voit la console éteinte ; le CFW n'est possible que sur certains modèles | seulement les Switch de première génération non corrigées (sinon une puce à souder) ; Atmosphère est à relancer depuis un PC après chaque arrêt complet ; pour jouer en ligne il faut démarrer le système d'origine, sans Switch Assistant, et le hub ne voit plus la console |
+| Risques | console inutilisable en cas d'erreur, bannissement du PSN | console inutilisable en cas d'erreur, bannissement définitif des services en ligne de Nintendo |
+| Ce que le hub y gagne | voir le tableau détaillé : températures, ventilateur, extinction, redémarrage, message à l'écran… | voir le tableau détaillé : batterie, image de l'écran, extinction, redémarrage, message à l'écran… |
 
-Ce qui reste est imposé par les consoles, pas par le hub :
-
-- une PS3 d'origine ne dialogue pas sur le réseau : webMAN MOD est ce qui lui donne une interface ;
-- une Switch d'origine non plus : Switch Assistant tourne sur la console et ne parle que MQTT,
-  d'où le broker (Mosquitto, l'App standard de Home Assistant) ;
-- pour la Xbox, que je n'ai pas pu tester faute de console, le hub s'appuie sur une entité
-  existante (intégration Xbox officielle) en attendant un pilote natif.
+Rien d'autre à installer dans Home Assistant : pas d'App, pas de dépendance Python externe. Le
+hub remplace PS5-MQTT (App) et intègre lui-même le compte PlayStation Network.
 
 > **État : 0.3.0.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
-> PlayStation Network, allumage et mise en repos. PS3 et Switch restent à essayer : voir
-> [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md). Les protocoles sont aussi testés contre des
-> consoles et des serveurs simulés et, pour la PS5, octet par octet contre playactor.
+> PlayStation Network, allumage et mise en repos. Les pilotes PS3 et Switch (consoles modifiées)
+> n'ont été testés que contre des consoles simulées : voir
+> [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md). Pour la PS5, les protocoles sont aussi
+> vérifiés octet par octet contre playactor.
 
 ## Avertissement
 
@@ -52,9 +69,9 @@ servir ou le reprendre librement (licence MIT-0, sans même obligation de citer 
 
 Sécurité et signalement des failles : [`SECURITY.md`](SECURITY.md).
 
-## Ce que fait chaque console
+## Tableau détaillé
 
-| | PlayStation 5 | PlayStation 3 | Nintendo Switch | Xbox et autres |
+| | PlayStation 5 | PlayStation 3 (modifiée) | Nintendo Switch (modifiée) | Xbox et autres |
 |---|---|---|---|---|
 | Liaison | réseau local (DDP, Remote Play) + compte PSN | HTTP local (+ compte PSN) | MQTT | entité source |
 | État éteinte / veille / allumée / en jeu | ✅ | ✅ (pas de veille) | ✅ | ✅ |
@@ -132,16 +149,18 @@ Il demande enfin comment obtenir l'appairage nécessaire pour allumer et éteind
 Si le compte PSN demande un code d'accès à la connexion sur la console, le renseigner : la mise
 en veille passe par une connexion Lecture à distance.
 
-### PlayStation 3
+### PlayStation 3 (console modifiée)
 
-Console avec webMAN MOD, allumée au moment de l'ajout. Saisir son adresse IP (port 80 par
+Réservé à une PS3 **déjà modifiée** (voir « Consoles modifiées »). Console avec webMAN MOD,
+allumée au moment de l'ajout. Saisir son adresse IP (port 80 par
 défaut), puis, si on le souhaite, le compte PlayStation Network (statut, trophées). Pour
 l'allumage, associer un script dans les options : la TV en HDMI-CEC (« Contrôle par HDMI »
 activé sur la PS3), une manette Bluetooth émulée, ou un pousse-bouton.
 
-### Nintendo Switch
+### Nintendo Switch (console modifiée)
 
-Switch sous Atmosphère avec [Switch Assistant](https://github.com/ErSeraph/switch-assistant)
+Réservé à une Switch **déjà modifiée** (voir « Consoles modifiées »). Sans modification, voir
+« Sans modifier la console ». Switch sous Atmosphère avec [Switch Assistant](https://github.com/ErSeraph/switch-assistant)
 configuré vers le broker MQTT de Home Assistant. Dès que la console publie, Home Assistant
 propose de l'ajouter (découverte MQTT). On peut aussi l'ajouter à la main avec l'identifiant
 client affiché dans l'application Switch Assistant.
@@ -245,7 +264,7 @@ reprise n'a lieu qu'une fois par console.
 | Message à l'écran, Redémarrer | PS3 et Switch |
 | Quitter le jeu | PS3 |
 | Écran (caméra) | Switch, pendant les jeux |
-| Données de la console | voir le tableau « Ce que fait chaque console » ; les diagnostics rarement utiles (adresse IP, utilisation totale, démarrages, tension batterie) sont créés désactivés |
+| Données de la console | voir le « Tableau détaillé » ; les diagnostics rarement utiles (adresse IP, utilisation totale, démarrages, tension batterie) sont créés désactivés |
 | PlayStation Network, Niveau de trophées, PlayStation Plus | si le compte PSN est associé (PS5, PS3, PS4) |
 
 ## Statistiques de toutes les consoles
