@@ -3,6 +3,9 @@ name: validate
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  # Repository switched from private to public: run the HACS check it was waiting for.
+  public:
 
 permissions:
   contents: read
@@ -14,6 +17,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: home-assistant/actions/hassfest@master
   hacs:
+    # HACS only validates (and installs) public repositories: skipped while private.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     steps:
       - uses: hacs/action@main
