@@ -8,6 +8,9 @@ from typing import Final
 DOMAIN: Final = "gaming_hub"
 EVENT_PARENTAL: Final = f"{DOMAIN}_parental"
 STORAGE_VERSION: Final = 1
+# Config entry of the cross-console statistics (kind of entry, not a console).
+SUMMARY: Final = "summary"
+SIGNAL_CONSOLES_UPDATED: Final = f"{DOMAIN}_consoles_updated"
 
 
 class ConsoleKind(StrEnum):

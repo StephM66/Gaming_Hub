@@ -8,6 +8,7 @@ from typing import Any
 
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
+    ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
@@ -59,6 +60,7 @@ from .const import (
     DEFAULT_SWITCH_IMAGE_TEMPLATE,
     DOMAIN,
     PS5_MQTT_CREDENTIALS,
+    SUMMARY,
     ConsoleKind,
     LinkedPreset,
 )
@@ -121,10 +123,23 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry) -> GamingHubOptionsFlow:
         return GamingHubOptionsFlow()
 
+    @classmethod
+    @callback
+    def async_supports_options_flow(cls, config_entry: ConfigEntry) -> bool:
+        return config_entry.data.get(CONF_KIND) != SUMMARY
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
-            step_id="user", menu_options=[kind.value for kind in ConsoleKind]
+            step_id="user", menu_options=[*(kind.value for kind in ConsoleKind), SUMMARY]
         )
+
+    async def async_step_summary(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Statistics across all the consoles (once)."""
+        await self.async_set_unique_id(SUMMARY)
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(title="Gaming Hub", data={CONF_KIND: SUMMARY})
 
     def _create(self) -> ConfigFlowResult:
         return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
@@ -251,6 +266,8 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
         self._data = dict(entry.data)
+        if entry.data[CONF_KIND] == SUMMARY:
+            return self.async_abort(reason="reconfigure_unsupported")
         if entry.data[CONF_KIND] == ConsoleKind.PS5:
             return self.async_show_menu(step_id="reconfigure", menu_options=["psn", "ps5_pairing"])
         if PSN_PLATFORMS.get(profile_key(self._data)):

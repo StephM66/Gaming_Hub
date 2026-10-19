@@ -27,9 +27,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from .const import CONF_KIND, SUMMARY
 from .coordinator import ConsoleData, GamingHubConfigEntry, GamingHubCoordinator
 from .entity import GamingHubEntity
 from .parental import ParentalStatus
+from .summary import SUMMARY_SENSORS, SummarySensor
 
 PARALLEL_UPDATES = 0
 
@@ -76,6 +78,22 @@ HUB_SENSORS: tuple[HubSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfTime.MINUTES,
         suggested_display_precision=0,
         value_fn=lambda data: round(data.playtime / 60, 1),
+    ),
+    HubSensorDescription(
+        key="playtime_week",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        suggested_display_precision=1,
+        value_fn=lambda data: round(data.playtime_week / 3600, 2),
+    ),
+    HubSensorDescription(
+        key="playtime_month",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        suggested_display_precision=1,
+        value_fn=lambda data: round(data.playtime_month / 3600, 2),
     ),
     HubSensorDescription(
         key="parental_status",
@@ -290,6 +308,9 @@ async def async_setup_entry(
     entry: GamingHubConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
+    if entry.data.get(CONF_KIND) == SUMMARY:
+        async_add_entities(SummarySensor(entry, description) for description in SUMMARY_SENSORS)
+        return
     coordinator = entry.runtime_data
     descriptions = [d for d in HUB_SENSORS if d.exists_fn(coordinator)]
     descriptions += [DRIVER_SENSORS[key] for key in coordinator.sensor_keys]

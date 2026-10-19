@@ -31,9 +31,10 @@ Ce qui reste est imposé par les consoles, pas par le hub :
 - pour la Xbox, que je n'ai pas pu tester faute de console, le hub s'appuie sur une entité
   existante (intégration Xbox officielle) en attendant un pilote natif.
 
-> **État : 0.2.0, à valider sur console.** Les protocoles sont testés contre des consoles et des
-> serveurs simulés et, pour la PS5, octet par octet contre playactor (le moteur de PS5-MQTT).
-> Aucun essai n'a encore été fait sur une vraie console : voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
+> **État : 0.3.0.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
+> PlayStation Network, allumage et mise en repos. PS3 et Switch restent à essayer : voir
+> [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md). Les protocoles sont aussi testés contre des
+> consoles et des serveurs simulés et, pour la PS5, octet par octet contre playactor.
 
 ## Avertissement
 
@@ -238,13 +239,29 @@ reprise n'a lieu qu'une fois par console.
 | `media_player` | état, jeu, jaquette, allumer/éteindre ; en mode repos l'état est `off` et l'attribut `power_state` vaut `standby` |
 | Jeu en cours, En jeu | pour les automatisations et l'historique |
 | Puissance, Énergie | seulement avec une prise connectée associée |
-| Temps de jeu aujourd'hui, Temps de jeu restant, Contrôle parental | |
+| Temps de jeu aujourd'hui, cette semaine, ce mois-ci | la semaine va du lundi au dimanche |
+| Temps de jeu restant, Contrôle parental | |
 | Contrôle parental, Temps de jeu quotidien, Préavis, plage horaire, action | réglages (catégorie configuration) |
 | Message à l'écran, Redémarrer | PS3 et Switch |
 | Quitter le jeu | PS3 |
 | Écran (caméra) | Switch, pendant les jeux |
 | Données de la console | voir le tableau « Ce que fait chaque console » ; les diagnostics rarement utiles (adresse IP, utilisation totale, démarrages, tension batterie) sont créés désactivés |
 | PlayStation Network, Niveau de trophées, PlayStation Plus | si le compte PSN est associé (PS5, PS3, PS4) |
+
+## Statistiques de toutes les consoles
+
+Ajouter une intégration → **Gaming Hub** → « Statistiques de toutes les consoles » (une seule
+fois). Un appareil « Gaming Hub » additionne alors toutes les consoles du hub :
+
+| Capteur | Valeur | Attributs |
+|---|---|---|
+| Temps de jeu aujourd'hui | minutes, toutes consoles | minutes par console |
+| Temps de jeu cette semaine, ce mois-ci | heures, toutes consoles | heures par console |
+| Consoles allumées | nombre | liste des consoles allumées |
+| Jeux en cours | titres joués en ce moment | jeu par console |
+
+Le temps de jeu compte le temps où la console est allumée. Les graphiques de statistiques de
+Home Assistant donnent ensuite les totaux par jour, semaine ou mois sur la durée.
 
 ## Architecture
 
@@ -255,7 +272,9 @@ custom_components/gaming_hub/
   drivers/     un pilote par type : ps5, ps3, switch, linked (Xbox et autres)
   coordinator  état du pilote + entités liées + temps de jeu, énergie, contrôle parental
   parental     règles du contrôle parental (pures, testées sans Home Assistant)
-  usage        temps de jeu du jour et énergie cumulée
+  usage        temps de jeu (jour, semaine, mois) et énergie cumulée
+  consumption  reprise du compteur d'énergie d'une prise (historique, tableau Énergie)
+  summary      statistiques de toutes les consoles
   config_flow  ajout par type, découverte MQTT des Switch, appairage PS5, options
 ```
 

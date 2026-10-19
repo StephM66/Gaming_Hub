@@ -66,6 +66,8 @@ class ConsoleData:
     power: float | None  # W, from the linked power sensor
     energy: float  # kWh
     playtime: float  # seconds today
+    playtime_week: float  # seconds this week (Monday to Sunday)
+    playtime_month: float  # seconds this month
     parental: ParentalDecision
 
 
@@ -205,6 +207,8 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             power=power,
             energy=self.usage.energy,
             playtime=self.usage.playtime,
+            playtime_week=self.usage.week_playtime,
+            playtime_month=self.usage.month_playtime,
             parental=decision,
         )
 

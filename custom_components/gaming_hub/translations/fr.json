@@ -8,7 +8,8 @@
           "ps5": "PlayStation 5",
           "ps3": "PlayStation 3 (webMAN MOD)",
           "switch": "Nintendo Switch (Switch Assistant)",
-          "linked": "Xbox ou autre console déjà présente dans Home Assistant"
+          "linked": "Xbox ou autre console déjà présente dans Home Assistant",
+          "summary": "Statistiques de toutes les consoles"
         }
       },
       "ps5": {
@@ -230,6 +231,12 @@
       "playtime_today": {
         "name": "Temps de jeu aujourd'hui"
       },
+      "playtime_week": {
+        "name": "Temps de jeu cette semaine"
+      },
+      "playtime_month": {
+        "name": "Temps de jeu ce mois-ci"
+      },
       "parental_status": {
         "name": "Contrôle parental",
         "state": {
@@ -341,6 +348,12 @@
       },
       "trophy_level": {
         "name": "Niveau de trophées"
+      },
+      "consoles_on": {
+        "name": "Consoles allumées"
+      },
+      "games": {
+        "name": "Jeux en cours"
       }
     },
     "switch": {
