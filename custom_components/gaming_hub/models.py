@@ -26,6 +26,9 @@ class ConsoleSnapshot:
     image_url: str | None = None  # fetched by Home Assistant (media proxy)
     entity_picture: str | None = None  # already a frontend path (linked media player)
     attributes: dict[str, Any] = field(default_factory=dict)
+    # Seconds played today, this week and this month as counted by the console's maker,
+    # used instead of the hub's own count.
+    playtime: tuple[float, float, float] | None = None
 
     @property
     def is_on(self) -> bool:

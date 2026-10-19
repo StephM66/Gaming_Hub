@@ -23,6 +23,7 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -37,6 +38,7 @@ from .const import (
     CONF_ACCOUNT_ID,
     CONF_BLOCK_ENTITY,
     CONF_CLIENT_ID,
+    CONF_DEVICE_ID,
     CONF_DISCOVERY_PREFIX,
     CONF_ENERGY_SOURCE,
     CONF_HIDE_SOURCES,
@@ -44,6 +46,7 @@ from .const import (
     CONF_HOST_ID,
     CONF_IMAGE_TEMPLATE,
     CONF_KIND,
+    CONF_MODEL,
     CONF_NAME,
     CONF_NPSSO,
     CONF_ON_THRESHOLD,
@@ -51,9 +54,11 @@ from .const import (
     CONF_PIN,
     CONF_PORT,
     CONF_POWER_ENTITY,
+    CONF_PRESENCE_ENTITY,
     CONF_PRESET,
     CONF_REGIST_KEY,
     CONF_RP_KEY,
+    CONF_SESSION_TOKEN,
     CONF_SOURCE_ENTITY,
     CONF_TURN_OFF_ENTITY,
     CONF_TURN_ON_ENTITY,
@@ -66,7 +71,7 @@ from .const import (
 )
 from .consumption import plug_energy_sensor
 from .coordinator import PSN_PLATFORMS, profile_key
-from .protocols import ddp, remoteplay
+from .protocols import ddp, nintendo, remoteplay
 from .protocols import switch_assistant as sa
 from .protocols.psn import NPSSO_URL, PsnAuthError, PsnClient, PsnError
 from .protocols.webman import DEFAULT_PORT, WebmanClient, WebmanError
@@ -89,6 +94,7 @@ SOURCE_DOMAINS = [
 ]
 ACTION_DOMAINS = ["script", "scene", "button", "input_button", "switch", "input_boolean"]
 PASSWORD = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
+CONF_LINK = "link"  # Nintendo account link pasted during sign-in
 
 
 def _watts() -> NumberSelector:
@@ -117,6 +123,8 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._data: dict[str, Any] = {}
+        self._nintendo_login: nintendo.NintendoLogin | None = None
+        self._nintendo_devices: dict[str, nintendo.NintendoDevice] = {}
 
     @staticmethod
     @callback
@@ -311,6 +319,8 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
+        if entry_data.get(CONF_KIND) == ConsoleKind.NINTENDO:
+            return await self.async_step_nintendo_reauth()
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
@@ -368,7 +378,101 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    # --- Nintendo Switch ----------------------------------------------------
+    # --- Nintendo account (Switch, Switch 2) --------------------------------
+
+    def _nintendo_form(self, step_id: str, errors: dict[str, str]) -> ConfigFlowResult:
+        if self._nintendo_login is None:
+            self._nintendo_login = nintendo.login()
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=vol.Schema({vol.Required(CONF_LINK): str}),
+            description_placeholders={"login_url": self._nintendo_login.url},
+            errors=errors,
+        )
+
+    async def _nintendo_sign_in(self, link: str) -> tuple[str, dict[str, str]]:
+        """Session token for the pasted link (and the account's consoles), or form errors."""
+        session = async_get_clientsession(self.hass)
+        login = self._nintendo_login or nintendo.login()
+        try:
+            token = await nintendo.async_session_token(session, link, login.verifier)
+            devices = await nintendo.NintendoClient(session, token).async_devices()
+        except nintendo.NintendoAuthError:
+            return "", {"base": "invalid_link"}
+        except nintendo.NintendoError:
+            return "", {"base": "nintendo_unavailable"}
+        self._nintendo_devices = {device.device_id: device for device in devices}
+        return token, {}
+
+    async def async_step_nintendo(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Sign in to the Nintendo account that manages the console (Parental Controls)."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            token, errors = await self._nintendo_sign_in(user_input[CONF_LINK])
+            if not errors:
+                if not self._nintendo_devices:
+                    return self.async_abort(reason="no_nintendo_console")
+                self._data = {CONF_KIND: ConsoleKind.NINTENDO.value, CONF_SESSION_TOKEN: token}
+                return await self.async_step_nintendo_console()
+        return self._nintendo_form("nintendo", errors)
+
+    async def async_step_nintendo_console(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Which console of the account, and which entity tells that it is on."""
+        devices = self._nintendo_devices
+        if user_input is not None:
+            device = devices[user_input.get(CONF_DEVICE_ID) or next(iter(devices))]
+            await self.async_set_unique_id(f"nintendo_{device.device_id}")
+            self._abort_if_unique_id_configured(
+                updates={CONF_SESSION_TOKEN: self._data[CONF_SESSION_TOKEN]}
+            )
+            self._data |= {
+                CONF_DEVICE_ID: device.device_id,
+                CONF_MODEL: device.model,
+                CONF_NAME: user_input.get(CONF_NAME) or device.name,
+            }
+            presence = user_input.get(CONF_PRESENCE_ENTITY)
+            return self.async_create_entry(
+                title=self._data[CONF_NAME],
+                data=self._data,
+                options={CONF_PRESENCE_ENTITY: presence} if presence else {},
+            )
+        fields: dict[Any, Any] = {}
+        if len(devices) > 1:
+            fields[vol.Required(CONF_DEVICE_ID)] = SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        SelectOptionDict(value=device_id, label=f"{device.name} ({device.model})")
+                        for device_id, device in devices.items()
+                    ]
+                )
+            )
+        fields[vol.Optional(CONF_PRESENCE_ENTITY)] = EntitySelector(
+            EntitySelectorConfig(domain=SOURCE_DOMAINS)
+        )
+        fields[vol.Optional(CONF_NAME)] = str
+        return self.async_show_form(step_id="nintendo_console", data_schema=vol.Schema(fields))
+
+    async def async_step_nintendo_reauth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """The Nintendo session ended (signed out, password changed): sign in again."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            entry = self._get_reauth_entry()
+            token, errors = await self._nintendo_sign_in(user_input[CONF_LINK])
+            if not errors and entry.data[CONF_DEVICE_ID] not in self._nintendo_devices:
+                errors["base"] = "nintendo_console_missing"
+            if not errors:
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_SESSION_TOKEN: token}
+                )
+        return self._nintendo_form("nintendo_reauth", errors)
+
+    # --- Nintendo Switch modified with Switch Assistant ----------------------
 
     async def async_step_switch(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if not self.hass.config_entries.async_entries("mqtt"):
@@ -493,6 +597,10 @@ class GamingHubOptionsFlow(OptionsFlow):
         }
         if entry.data[CONF_KIND] == ConsoleKind.SWITCH:
             fields[vol.Optional(CONF_IMAGE_TEMPLATE)] = str
+        if entry.data[CONF_KIND] == ConsoleKind.NINTENDO:
+            fields[vol.Optional(CONF_PRESENCE_ENTITY)] = EntitySelector(
+                EntitySelectorConfig(domain=SOURCE_DOMAINS)
+            )
         suggested = {CONF_IMAGE_TEMPLATE: DEFAULT_SWITCH_IMAGE_TEMPLATE, **entry.options}
         return self.async_show_form(
             step_id="init",

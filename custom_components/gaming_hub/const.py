@@ -17,6 +17,7 @@ class ConsoleKind(StrEnum):
     """One driver per kind."""
 
     PS5 = "ps5"
+    NINTENDO = "nintendo"  # Switch and Switch 2 through the Nintendo account, unmodified
     PS3 = "ps3"
     SWITCH = "switch"
     LINKED = "linked"  # any console already in Home Assistant (Xbox, PS4, Steam…)
@@ -50,6 +51,9 @@ CONF_SOURCE_ENTITY: Final = "source_entity"
 CONF_PRESET: Final = "preset"
 CONF_ON_THRESHOLD: Final = "on_threshold"
 CONF_NPSSO: Final = "npsso"
+CONF_SESSION_TOKEN: Final = "session_token"  # Nintendo account
+CONF_DEVICE_ID: Final = "device_id"
+CONF_MODEL: Final = "model"
 
 # Options (every kind)
 CONF_POWER_ENTITY: Final = "power_entity"
@@ -59,6 +63,8 @@ CONF_BLOCK_ENTITY: Final = "block_entity"
 CONF_ENERGY_SOURCE: Final = "energy_source"
 CONF_HIDE_SOURCES: Final = "hide_sources"
 CONF_IMAGE_TEMPLATE: Final = "image_template"
+# Any entity telling whether the console is on, for a console that cannot say it itself.
+CONF_PRESENCE_ENTITY: Final = "presence_entity"
 
 # ps5-mqtt keeps playactor credentials in the Home Assistant configuration folder.
 PS5_MQTT_CREDENTIALS: Final = ("ps5-mqtt", "credentials.json")
@@ -71,6 +77,7 @@ DEVICE_INFO: Final[dict[str, tuple[str, str]]] = {
     ConsoleKind.PS5: ("Sony", "PlayStation 5"),
     ConsoleKind.PS3: ("Sony", "PlayStation 3"),  # also LinkedPreset.PS3 (same key)
     ConsoleKind.SWITCH: ("Nintendo", "Switch"),
+    ConsoleKind.NINTENDO: ("Nintendo", "Switch"),  # model from the account (Switch 2)
     LinkedPreset.XBOX: ("Microsoft", "Xbox"),
     LinkedPreset.PS4: ("Sony", "PlayStation 4"),
     LinkedPreset.PC: ("PC", "PC / Steam Deck"),

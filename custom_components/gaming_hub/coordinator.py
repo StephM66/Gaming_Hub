@@ -12,7 +12,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_UNIT_OF_MEASUREMENT, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_track_state_change_event
@@ -23,6 +23,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_BLOCK_ENTITY,
     CONF_KIND,
+    CONF_MODEL,
     CONF_NPSSO,
     CONF_POWER_ENTITY,
     CONF_PRESET,
@@ -103,6 +104,7 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self.options = dict(entry.options)
         key = profile_key(dict(entry.data))
         self.manufacturer, self.model = DEVICE_INFO[key]
+        self.model = entry.data.get(CONF_MODEL) or self.model
         self.usage = UsageTracker()
         self.parental = ParentalController(ParentalSettings())
         self._store: Store[dict[str, Any]] = Store(
@@ -189,6 +191,8 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
     async def _async_update_data(self) -> ConsoleData:
         try:
             snapshot = await self.driver.async_fetch()
+        except ConfigEntryAuthFailed:
+            raise
         except Exception as err:  # drivers report an unreachable console as off
             raise UpdateFailed(f"{type(err).__name__}: {err}") from err
         now = dt_util.now()
@@ -196,7 +200,13 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self._merge_psn(snapshot)
         power = self._power()
         self.usage.update(now, snapshot.is_on, power)
-        decision = self.parental.evaluate(now, snapshot.is_on, self.usage.playtime)
+        # The maker's own count when the driver has it (Nintendo account), else the hub's.
+        playtime, week, month = snapshot.playtime or (
+            self.usage.playtime,
+            self.usage.week_playtime,
+            self.usage.month_playtime,
+        )
+        decision = self.parental.evaluate(now, snapshot.is_on, playtime)
         self._schedule_save(now)
         if decision.notice or decision.enforce:
             self.config_entry.async_create_background_task(
@@ -206,9 +216,9 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             snapshot=snapshot,
             power=power,
             energy=self.usage.energy,
-            playtime=self.usage.playtime,
-            playtime_week=self.usage.week_playtime,
-            playtime_month=self.usage.month_playtime,
+            playtime=playtime,
+            playtime_week=week,
+            playtime_month=month,
             parental=decision,
         )
 

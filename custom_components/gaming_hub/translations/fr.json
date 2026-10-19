@@ -6,6 +6,7 @@
         "title": "Ajouter une console",
         "menu_options": {
           "ps5": "PlayStation 5",
+          "nintendo": "Nintendo Switch ou Switch 2 (compte Nintendo, sans modification)",
           "ps3": "PlayStation 3 modifiée (webMAN MOD)",
           "switch": "Nintendo Switch modifiée (Switch Assistant)",
           "linked": "Xbox, PS4 ou autre console (intégration existante ou prise)",
@@ -101,6 +102,29 @@
           "psn": "Compte PlayStation Network",
           "ps5_pairing": "Appairage pour allumer et éteindre"
         }
+      },
+      "nintendo": {
+        "title": "Compte Nintendo",
+        "description": "Se connecter avec le compte Nintendo qui gère la console dans l'application Contrôle parental Nintendo Switch (la console doit y être associée). Ouvrir la [connexion Nintendo]({login_url}), se connecter, puis faire un clic droit sur le bouton rouge du compte (appui long sur téléphone), choisir **Copier le lien** et le coller ci-dessous.\n\nNintendo donne les jeux et le temps de jeu, avec un délai, mais ne dit jamais si la console est allumée et ne permet ni de l'allumer ni de l'éteindre.",
+        "data": {
+          "link": "Lien copié"
+        }
+      },
+      "nintendo_console": {
+        "title": "Console",
+        "description": "Nintendo ne dit pas quand la console est allumée. N'importe quelle entité qui le sait peut le faire : entrée d'un switch HDMI ou d'une Sync Box, ping ou suivi par le routeur, source de la TV, puissance d'une prise… Sans elle, la console est considérée allumée tant que son temps de jeu augmente (avec le délai de Nintendo).",
+        "data": {
+          "device_id": "Console",
+          "presence_entity": "Allumée quand (facultatif)",
+          "name": "Nom"
+        }
+      },
+      "nintendo_reauth": {
+        "title": "Compte Nintendo déconnecté",
+        "description": "Nintendo a refusé la session (déconnexion, mot de passe changé…). Ouvrir la [connexion Nintendo]({login_url}), se connecter, puis faire un clic droit sur le bouton rouge du compte (appui long sur téléphone), choisir **Copier le lien** et le coller ci-dessous.",
+        "data": {
+          "link": "Lien copié"
+        }
       }
     },
     "error": {
@@ -113,7 +137,10 @@
       "in_use": "La Lecture à distance est déjà utilisée.",
       "pairing_failed": "Échec de l'appairage.",
       "invalid_npsso": "Ce jeton NPSSO n'est pas valide (expiré, ou copié incomplètement).",
-      "psn_unavailable": "Le PlayStation Network n'a pas répondu, réessayer plus tard."
+      "psn_unavailable": "Le PlayStation Network n'a pas répondu, réessayer plus tard.",
+      "invalid_link": "Ce lien n'est pas valide ou a déjà servi : rouvrir le lien de connexion.",
+      "nintendo_unavailable": "Nintendo n'a pas répondu, réessayer plus tard.",
+      "nintendo_console_missing": "Cette console n'est plus associée à ce compte Nintendo."
     },
     "abort": {
       "already_configured": "Cette console est déjà configurée.",
@@ -121,7 +148,8 @@
       "invalid_discovery": "Sujet MQTT inattendu.",
       "reconfigure_unsupported": "Rien à reconfigurer pour cette console : la supprimer puis l'ajouter à nouveau.",
       "reconfigure_successful": "Appairage mis à jour.",
-      "reauth_successful": "Compte PlayStation Network mis à jour."
+      "reauth_successful": "Compte mis à jour.",
+      "no_nintendo_console": "Aucune console n'est associée à ce compte Nintendo dans l'application Contrôle parental."
     }
   },
   "options": {
@@ -133,14 +161,16 @@
           "turn_on_entity": "Allumer avec",
           "turn_off_entity": "Éteindre avec",
           "block_entity": "Blocage parental avec",
-          "image_template": "URL de la jaquette ({title_id})"
+          "image_template": "URL de la jaquette ({title_id})",
+          "presence_entity": "Allumée quand"
         },
         "data_description": {
           "power_entity": "Une prise connectée en amont de la console : les capteurs Puissance et Énergie n'existent qu'avec elle.",
           "turn_on_entity": "Script, bouton ou interrupteur qui remplace la commande native (PS3 : HDMI-CEC, Bluetooth, pousse-bouton).",
           "turn_off_entity": "Script, bouton ou interrupteur qui remplace la commande native.",
           "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé, par exemple l'interrupteur de suspension de l'intégration Contrôle parental Nintendo Switch.",
-          "image_template": "Laisser vide pour ne pas afficher de jaquette."
+          "image_template": "Laisser vide pour ne pas afficher de jaquette.",
+          "presence_entity": "N'importe quelle entité qui dit si la console est allumée (entrée HDMI, ping, source TV, puissance d'une prise…)."
         }
       },
       "energy": {

@@ -78,6 +78,8 @@ HUB_SENSORS: tuple[HubSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfTime.MINUTES,
         suggested_display_precision=0,
         value_fn=lambda data: round(data.playtime / 60, 1),
+        # Games and players of the day, when the console's maker gives them (Nintendo).
+        attributes_fn=lambda data: data.snapshot.attributes.get("playtime_today"),
     ),
     HubSensorDescription(
         key="playtime_week",

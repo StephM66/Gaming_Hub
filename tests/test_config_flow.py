@@ -35,7 +35,7 @@ def no_setup():
 async def _menu(hass: HomeAssistant, choice: str):
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["ps5", "ps3", "switch", "linked", "summary"]
+    assert result["menu_options"] == ["ps5", "nintendo", "ps3", "switch", "linked", "summary"]
     return await hass.config_entries.flow.async_configure(
         result["flow_id"], {"next_step_id": choice}
     )
