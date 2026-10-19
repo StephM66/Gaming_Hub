@@ -335,14 +335,21 @@ async def test_presence_entity_game_and_official_play_time(
     assert (state.state, state.attributes["media_title"]) == ("playing", "Zelda")
     assert float(hass.states.get("sensor.switch_play_time_today").state) == 35
 
-    # Off: no game, and Nintendo is read once more (last minutes), then rarely.
+    # Off at the TV: no game, even though Zelda's minutes grew a moment ago.
     hass.states.async_set(hdmi, "plugged")
     await _tick(hass, freezer)
     assert hass.states.get(PLAYER).state == "off"
-    calls = account.calls
-    for _ in range(10):
+    await _tick(hass, freezer, 61)
+    assert hass.states.get(PLAYER).state == "off"
+
+    # Still read every minute: minutes added since, so played away from the TV (handheld).
+    account.play(ZELDA, None, 3)
+    await _tick(hass, freezer, 61)
+    state = hass.states.get(PLAYER)
+    assert (state.state, state.attributes["media_title"]) == ("playing", "Zelda")
+    for _ in range(31):
         await _tick(hass, freezer, 61)
-    assert account.calls == calls + 1
+    assert hass.states.get(PLAYER).state == "off"
 
 
 async def test_without_presence_entity(

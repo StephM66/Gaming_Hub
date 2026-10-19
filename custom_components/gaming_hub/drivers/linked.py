@@ -4,6 +4,8 @@ The state comes from one source entity:
 
 - a media player (Xbox, PlayStation 4, PlayStation Network, Android TV…):
   power, current game and artwork, power commands;
+- a game account sensor (Steam): in game with the game and its artwork, standby while the
+  account is only online;
 - any other entity: on/off only, read by ``presence.is_present`` (switch, binary sensor,
   device tracker or ping, HDMI switch input "linked", power sensor above a threshold…).
 """
@@ -23,8 +25,11 @@ from homeassistant.const import (
     STATE_PAUSED,
     STATE_PLAYING,
     STATE_STANDBY,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
 )
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_state_change_event
 
 from ..const import CONF_ON_THRESHOLD, CONF_SOURCE_ENTITY
@@ -35,6 +40,10 @@ from .base import ConsoleDriver, unsupported
 _PLAYING = {STATE_PLAYING, STATE_PAUSED, "buffering"}
 _AWAKE = {STATE_ON, STATE_IDLE, *_PLAYING}
 _SWITCHABLE = {"switch", "input_boolean", "fan", "light"}
+# Integrations whose sensor is a game account's status, with the game being played as
+# attributes (Home Assistant's Steam integration: "game", "game_id", "game_image_*").
+ACCOUNT_PLATFORMS = {"steam_online"}
+_ACCOUNT_OFF = {"offline", STATE_UNAVAILABLE, STATE_UNKNOWN}
 
 
 def media_from_state(state: State) -> tuple[str | None, str | None, str | None, str | None]:
@@ -47,6 +56,23 @@ def media_from_state(state: State) -> tuple[str | None, str | None, str | None, 
     return title, content_id, None, picture
 
 
+def account_snapshot(state: State) -> ConsoleSnapshot:
+    """A game account: in game when it reports a game, else standby (or off when offline)."""
+    if state.state in _ACCOUNT_OFF:
+        return ConsoleSnapshot(PowerState.OFF)
+    attributes = state.attributes
+    if not (title := attributes.get("game")):
+        return ConsoleSnapshot(PowerState.STANDBY)
+    image = attributes.get("game_image_main") or attributes.get("game_image_header")
+    return ConsoleSnapshot(
+        PowerState.ON,
+        in_game=True,
+        title=str(title),
+        title_id=str(attributes["game_id"]) if attributes.get("game_id") else None,
+        image_url=image if isinstance(image, str) and image.startswith("https://") else None,
+    )
+
+
 class LinkedDriver(ConsoleDriver):
     update_interval = timedelta(seconds=30)  # state changes are pushed
 
@@ -56,6 +82,8 @@ class LinkedDriver(ConsoleDriver):
         self._domain = self.source.split(".", 1)[0]
         self._threshold = float(entry.data.get(CONF_ON_THRESHOLD, 5.0))
         self._unsubscribe: Callable[[], None] | None = None
+        registered = er.async_get(hass).async_get(self.source)
+        self._account = registered is not None and registered.platform in ACCOUNT_PLATFORMS
 
     def _features(self) -> int:
         state = self.hass.states.get(self.source)
@@ -104,6 +132,8 @@ class LinkedDriver(ConsoleDriver):
                 image_url=image,
                 entity_picture=picture,
             )
+        if self._account:
+            return account_snapshot(state)
         threshold = self._threshold if self._domain == "sensor" else None
         on = is_present(state, threshold)
         return ConsoleSnapshot(PowerState.ON if on else PowerState.OFF)

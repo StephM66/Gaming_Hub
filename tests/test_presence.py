@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, State
+from homeassistant.helpers import entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -96,3 +97,48 @@ async def test_unmodified_ps3(hass: HomeAssistant, freezer: FrozenDateTimeFactor
         await _tick(hass, freezer)
         state = hass.states.get(player)
         assert (state.state, state.attributes["media_title"]) == ("playing", "Journey")
+
+
+async def test_steam_account(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
+    """Home Assistant's Steam integration: in game with the game, standby while only online."""
+    steam = (
+        er.async_get(hass)
+        .async_get_or_create(
+            "sensor", "steam_online", "76561198000000000", suggested_object_id="steam_steph"
+        )
+        .entity_id
+    )
+    hass.states.async_set(steam, "online", {"level": 12})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="PC",
+        data={"kind": "linked", "preset": "pc", "source_entity": steam, "name": "PC"},
+    )
+    await _setup(hass, entry)
+    player = "media_player.pc"
+    state = hass.states.get(player)
+    assert (state.state, state.attributes["power_state"]) == ("off", "standby")
+
+    hass.states.async_set(steam, "online", {"game": "Hades II", "game_id": "1145350", **IMAGES})
+    await _tick(hass, freezer)
+    state = hass.states.get(player)
+    assert (state.state, state.attributes["media_title"]) == ("playing", "Hades II")
+    assert state.attributes["entity_picture"].startswith("/api/media_player_proxy/")
+    for _ in range(6):
+        await _tick(hass, freezer, 300)  # only time in game is play time
+    hass.states.async_set(steam, "away")
+    await _tick(hass, freezer)
+    for _ in range(6):
+        await _tick(hass, freezer, 300)
+    assert float(hass.states.get("sensor.pc_play_time_today").state) == 30
+
+    hass.states.async_set(steam, "offline")
+    await _tick(hass, freezer)
+    state = hass.states.get(player)
+    assert (state.state, state.attributes["power_state"]) == ("off", "off")
+
+
+IMAGES = {
+    "game_image_main": "https://steamcdn-a.akamaihd.net/steam/apps/1145350/capsule_616x353.jpg",
+    "game_image_header": "https://steamcdn-a.akamaihd.net/steam/apps/1145350/header.jpg",
+}

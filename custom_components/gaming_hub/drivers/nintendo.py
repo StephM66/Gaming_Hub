@@ -6,7 +6,8 @@ game, deduced from the minutes that grow between two polls.
 
 Nintendo gives no power state and no command. An optional presence entity says whether the
 console is on (any entity, read by ``presence.is_present``: HDMI input, ping, TV source,
-plug…); without one, the console counts as on while its play time grows.
+plug…). Without one, or while it says off, the console counts as on while its play time grows:
+it may be played away from the TV (handheld, Switch Lite).
 """
 
 from __future__ import annotations
@@ -37,12 +38,12 @@ from ..usage import month_of, week_of
 from .base import ConsoleDriver
 
 _LOGGER = logging.getLogger(__name__)
-# Nintendo is polled every minute while the console may be on (at each refresh: just under
-# its interval), rarely while it is off.
-POLL_ON = 55
-POLL_OFF = 15 * 60
+# Nintendo is read at each refresh (just under its interval), also while the presence entity
+# says off: the console may be played away from the TV.
+POLL_INTERVAL = 55
 CATALOG_INTERVAL = 3600  # console information and game names
-# No minute added for that long: no current game (and, without presence entity, off).
+CATALOG_RETRY = 15 * 60  # a game played today that the console's list does not name yet
+# No minute added for that long: no current game (and, unless the presence entity says on, off).
 ACTIVE_WINDOW = timedelta(minutes=30)
 ON_THRESHOLD = 5.0  # W, for a power sensor as presence entity
 
@@ -71,7 +72,7 @@ class NintendoDriver(ConsoleDriver):
         self._system_version: str | None = None
         self._next_poll = 0.0
         self._next_catalog = 0.0
-        self._was_on = False
+        self._off_at: datetime | None = None  # since when the presence entity says off
         # Today's minutes per game at the previous poll (None until a first poll).
         self._minutes: dict[str, float] | None = None
         self._minutes_day: date | None = None
@@ -103,8 +104,12 @@ class NintendoDriver(ConsoleDriver):
     async def async_fetch(self) -> ConsoleSnapshot:
         now = dt_util.now()
         present = self._present()
+        if present:
+            self._off_at = None
+        elif present is False and self._off_at is None:
+            self._off_at = now
         try:
-            await self._async_poll(present, now)
+            await self._async_poll(now)
         except NintendoAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except NintendoError as err:
@@ -113,7 +118,11 @@ class NintendoDriver(ConsoleDriver):
             # Nintendo unreachable: keep what is known, the presence entity still answers.
             _LOGGER.debug("Nintendo account unavailable: %s", err)
         growing = self._grew_at is not None and now - self._grew_at <= ACTIVE_WINDOW
-        on = growing if present is None else present
+        if present is None:
+            on = growing
+        else:
+            # Off at the TV, yet minutes added since: played elsewhere (handheld, Switch Lite).
+            on = present or (growing and self._off_at is not None and self._grew_at > self._off_at)
         snapshot = ConsoleSnapshot(
             PowerState.ON if on else PowerState.OFF,
             attributes={"system_version": self._system_version},
@@ -135,12 +144,10 @@ class NintendoDriver(ConsoleDriver):
             snapshot.image_url = game.image
         return snapshot
 
-    async def _async_poll(self, present: bool | None, now: datetime) -> None:
-        just_on = bool(present) and not self._was_on
-        self._was_on = bool(present)
-        if not just_on and time.monotonic() < self._next_poll:
+    async def _async_poll(self, now: datetime) -> None:
+        if time.monotonic() < self._next_poll:
             return
-        self._next_poll = time.monotonic() + (POLL_OFF if present is False else POLL_ON)
+        self._next_poll = time.monotonic() + POLL_INTERVAL
         if time.monotonic() >= self._next_catalog:
             self._next_catalog = time.monotonic() + CATALOG_INTERVAL
             for device in await self.client.async_devices():
@@ -149,7 +156,7 @@ class NintendoDriver(ConsoleDriver):
             self._titles = await self.client.async_titles(self.device_id)
         self._days = await self.client.async_play_days(self.device_id)
         if any(self._named(game).title is None for game in self._today_games(now.date())):
-            self._next_catalog = min(self._next_catalog, time.monotonic() + POLL_OFF)  # new game
+            self._next_catalog = min(self._next_catalog, time.monotonic() + CATALOG_RETRY)
         self._follow(now)
 
     def _named(self, game: GameTime) -> GameTime:

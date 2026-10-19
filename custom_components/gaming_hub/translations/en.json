@@ -74,7 +74,7 @@
       },
       "linked": {
         "title": "Console already in Home Assistant",
-        "description": "Gaming Hub follows an existing entity: the Xbox or PlayStation 4 media player, a PlayStation Network media player, a smart plug power sensor…",
+        "description": "Gaming Hub follows an existing entity: the Xbox or PlayStation 4 media player, a PlayStation Network media player, the sensor of a Steam account (Steam integration), any entity telling the console is on (HDMI input, ping…), a smart plug power sensor…",
         "data": {
           "preset": "Type",
           "source_entity": "Source entity",

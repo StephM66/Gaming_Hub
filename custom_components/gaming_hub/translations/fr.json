@@ -74,7 +74,7 @@
       },
       "linked": {
         "title": "Console déjà présente dans Home Assistant",
-        "description": "Gaming Hub suit une entité existante : le lecteur multimédia Xbox ou PlayStation 4, un lecteur PlayStation Network, le capteur de puissance d'une prise connectée…",
+        "description": "Gaming Hub suit une entité existante : le lecteur multimédia Xbox ou PlayStation 4, un lecteur PlayStation Network, le capteur d'un compte Steam (intégration Steam), toute entité qui dit si la console est allumée (entrée HDMI, ping…), le capteur de puissance d'une prise connectée…",
         "data": {
           "preset": "Type",
           "source_entity": "Entité source",

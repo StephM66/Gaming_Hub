@@ -25,8 +25,9 @@ allumage ou extinction quand la console le permet.
 | Console | Liaison | Allumer, éteindre | État | Jeu en cours et jaquette | Temps de jeu, contrôle parental | Essayé sur console |
 |---|---|---|---|---|---|---|
 | PlayStation 5 | réseau local, compte PSN facultatif | ✅ allumage, mode repos | ✅ | ✅ via le compte PSN | ✅ | ✅ |
-| Nintendo Switch, Switch 2 | compte Nintendo (celui de l'application Contrôle parental), entité de présence¹ facultative | ❌ Nintendo ne le permet pas ; un script de votre choix | d'après l'entité de présence ; sans elle, déduit du temps de jeu qui augmente | déduit des minutes ajoutées par Nintendo, avec son délai | temps compté par Nintendo (jour, semaine, mois ; par jeu et par joueur) ; blocage seulement par un script | pas encore (API Nintendo simulée) |
+| Nintendo Switch, Switch 2 | compte Nintendo (celui de l'application Contrôle parental), entité de présence¹ facultative | ❌ Nintendo ne le permet pas ; un script de votre choix | d'après l'entité de présence ; hors de la TV (portable, Switch Lite) ou sans entité, déduit du temps de jeu qui augmente | déduit des minutes ajoutées par Nintendo, avec son délai | temps compté par Nintendo (jour, semaine, mois ; par jeu et par joueur) ; blocage seulement par un script | pas encore (API Nintendo simulée) |
 | PlayStation 3 | compte PSN et entité de présence¹ | ❌ par le réseau ; un script de votre choix | d'après l'entité de présence | ✅ via le compte PSN, quand la PS3 y est connectée | temps mesuré par le hub ; blocage seulement par un script | pas encore |
+| PC, Steam Deck | intégration officielle [Steam](https://www.home-assistant.io/integrations/steam_online/) de Home Assistant (compte Steam), liée au hub | ❌ ; un script de votre choix | en jeu ; compte en ligne sans jeu = veille | ✅ titre et jaquette | temps passé en jeu, mesuré par le hub ; blocage seulement par un script | pas encore |
 | Xbox, PlayStation 4 | intégration officielle de Home Assistant, liée au hub | selon l'intégration | selon l'intégration | selon l'intégration | ✅ | pas encore |
 | Toute autre console (rétro…) | prise connectée ou entité existante, liée au hub | ❌ par le réseau ; un script de votre choix | allumée ou éteinte, d'après la consommation ou l'entité | ❌ | temps mesuré par le hub ; blocage seulement par un script | pas encore |
 
@@ -60,7 +61,7 @@ hub remplace PS5-MQTT (App) et intègre lui-même le compte PlayStation Network.
 > **État : 0.4.0.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
 > PlayStation Network, allumage et mise en repos. Tout le reste n'a été testé que contre des
 > consoles et des services simulés : la Switch par le compte Nintendo, la PS3 sans modification,
-> et les pilotes des consoles modifiées. Voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
+> le PC par Steam, et les pilotes des consoles modifiées. Voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
 > Pour la PS5, les protocoles sont aussi vérifiés octet par octet contre playactor.
 
 ## Avertissement
@@ -184,16 +185,20 @@ Ce que le hub en tire :
   dont les minutes augmentent. Il apparaît donc avec le délai de synchronisation de la console
   (pas encore mesuré), et disparaît 30 minutes après la dernière minute ajoutée, ou dès que
   l'entité de présence dit la console éteinte.
-- **État** d'après l'entité de présence. Sans elle, la console est considérée allumée tant que
-  son temps de jeu augmente, avec le même délai.
+- **État** d'après l'entité de présence. Quand elle dit la console éteinte mais que des minutes
+  s'ajoutent quand même, la console est jouée ailleurs (en portable, Switch Lite) : elle est
+  alors considérée allumée, avec le délai de Nintendo. Sans entité de présence, c'est le seul
+  moyen de savoir.
 - Version du système, modèle (Switch ou Switch 2).
 
 Limites :
 
 - Nintendo ne permet ni d'allumer ni d'éteindre la console. « Allumer avec » et « Éteindre
   avec » acceptent un script de votre choix.
-- Le compte est lu toutes les minutes tant que la console peut être allumée, toutes les
-  15 minutes quand l'entité de présence la dit éteinte. Il est lu, jamais modifié.
+- Le compte est lu toutes les minutes, même quand l'entité de présence dit la console éteinte
+  (pour voir le jeu en portable). Il est lu, jamais modifié.
+- Juste après une extinction devant la TV, les dernières minutes envoyées par la console
+  peuvent la faire réapparaître allumée, au plus 30 minutes.
 - Si Nintendo refuse la session (déconnexion, mot de passe changé), Home Assistant demande de
   se reconnecter.
 
@@ -234,6 +239,10 @@ modification, PC / Steam Deck, console rétro, autre) et l'entité source :
   [PlayStation 4](https://www.home-assistant.io/integrations/ps4/), Android TV… Le hub reprend
   l'état, le jeu, la jaquette et l'allumage/extinction. Pour une PS4, le compte PlayStation
   Network peut être associé comme pour la PS5 ;
+- le **capteur d'un compte Steam** (intégration [Steam](https://www.home-assistant.io/integrations/steam_online/)) :
+  en jeu avec le titre et la jaquette ; compte en ligne sans jeu = veille ; hors ligne = éteint.
+  Le temps de jeu ne compte que le temps en jeu. Le profil Steam doit rendre publics les
+  détails des jeux. Un compte joué sur plusieurs appareils (PC et Steam Deck) n'en fait qu'un ;
 - un **interrupteur**, un capteur binaire, un `input_boolean` ou un `device_tracker` : allumée ou éteinte ;
 - un **capteur de puissance** : allumée au-delà d'un seuil, pratique pour une console rétro sur prise connectée.
 
@@ -381,7 +390,7 @@ python3.13 -m venv .venv && .venv/bin/pip install -r requirements_test.txt
   playactor (`tools/remoteplay_vectors.js`), puis séquences complètes contre une PS5 simulée.
 - `tests/test_protocol_psn.py` : compte PlayStation Network contre une API Sony simulée (jeton NPSSO, renouvellement, présence, trophées).
 - `tests/test_nintendo.py` : compte Nintendo contre une API simulée (connexion, renouvellement), puis jeu déduit, temps de jeu et reconnexion dans Home Assistant.
-- `tests/test_presence.py` : état d'après n'importe quelle entité, PS3 sans modification.
+- `tests/test_presence.py` : état d'après n'importe quelle entité, PS3 sans modification, compte Steam.
 - `tests/test_protocol_ps3_switch.py` : page webMAN reconstituée depuis le source de webMAN MOD, sujets Switch Assistant.
 - `tests/test_logic.py` : contrôle parental, temps de jeu, énergie.
 - `tests/test_config_flow.py`, `tests/test_entities.py` : intégration dans un vrai Home Assistant (MQTT simulé).
