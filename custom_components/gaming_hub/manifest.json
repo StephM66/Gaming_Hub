@@ -1,0 +1,20 @@
+{
+  "domain": "gaming_hub",
+  "name": "Gaming Hub",
+  "after_dependencies": [
+    "mqtt"
+  ],
+  "codeowners": [
+    "@StephM66"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/StephM66/Gaming_Hub",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/StephM66/Gaming_Hub/issues",
+  "mqtt": [
+    "switch_ha/+/current_game_id"
+  ],
+  "requirements": [],
+  "version": "0.1.0"
+}
