@@ -1,0 +1,42 @@
+name: release
+
+# Publishes the version written in manifest.json: bump it in a pull request, merge, done.
+on:
+  push:
+    branches: [main]
+    # The workflow file too: its first merge publishes the current version (once).
+    paths: [custom_components/gaming_hub/manifest.json, .github/workflows/release.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # the tag and the release
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Publish the manifest version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(jq -r .version custom_components/gaming_hub/manifest.json)
+          tag="v${version}"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "$tag is already published"
+            exit 0
+          fi
+          flags=()
+          if [[ "$version" =~ (a|b|rc)[0-9]+$ ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$tag" --target "$GITHUB_SHA" --title "Gaming Hub ${version}" \
+            --generate-notes "${flags[@]}"

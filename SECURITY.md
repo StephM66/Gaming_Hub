@@ -37,7 +37,8 @@ délai ni correctif garantis.
 - Tout ce qui vient du réseau est borné : pages webMAN (256 Kio, expressions régulières à
   temps linéaire), réponses Lecture à distance (64 Kio), champs DDP, valeurs MQTT (sujets
   connus seulement, 255 caractères).
-- Une console interrogée n'est crue que si la réponse vient de son adresse (DDP, appairage).
+- Une console interrogée n'est crue que si la réponse vient de son adresse (DDP, appairage), et
+  la réponse n'est attendue que sur l'interface réseau qui mène à la console.
 - Les adresses transmises à Home Assistant sont contrôlées : jaquettes PSN en HTTPS
   uniquement, flux de l'écran Switch en `rtsp://` simple, identifiant de jeu Switch au format
   attendu.

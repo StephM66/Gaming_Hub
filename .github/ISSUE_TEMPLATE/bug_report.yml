@@ -1,0 +1,64 @@
+name: Bug
+description: Quelque chose ne fonctionne pas comme prévu.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci du signalement. Gaming Hub est fourni en l'état : une réponse ou un correctif ne sont pas garantis.
+        Une faille de sécurité se signale en privé, pas ici (voir SECURITY.md).
+  - type: dropdown
+    id: console
+    attributes:
+      label: Console
+      options:
+        - PlayStation 5
+        - PlayStation 3
+        - Nintendo Switch
+        - Xbox
+        - PlayStation 4
+        - Autre console (entité liée)
+        - Sans rapport avec une console
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version de Gaming Hub
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Version de Home Assistant
+      description: Paramètres → À propos.
+      placeholder: 2026.10.1
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Ce qui se passe
+      description: Les étapes pour reproduire, et ce qui se passe.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ce qui était attendu
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Paramètres → Appareils et services → Gaming Hub → la console → ⋮ → Télécharger les diagnostics, puis glisser le fichier ici.
+        Clés, jetons et identifiants de compte y sont masqués ; les adresses IP locales restent.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Journaux
+      description: |
+        « Activer la journalisation de débogage » sur la page de l'intégration, reproduire, puis la désactiver : le fichier se télécharge.
+        À relire avant de publier.
+      render: text

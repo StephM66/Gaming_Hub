@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from unittest.mock import patch
 
 import aiohttp
 from aiohttp import web
@@ -86,8 +87,19 @@ async def test_ddp_ignores_answers_from_another_address() -> None:
     )
     port = transport.get_extra_info("sockname")[1]
     try:
-        assert await ddp.async_get_status("127.0.0.2", port=port, timeout=0.5) is None
+        # The test sandbox only lets sockets connect to 127.0.0.1, which local_address does.
+        with patch.object(ddp, "local_address", return_value="127.0.0.1"):
+            assert await ddp.async_get_status("127.0.0.2", port=port, timeout=0.5) is None
         assert await ddp.async_get_status("127.0.0.1", port=port, timeout=1) is not None
+    finally:
+        transport.close()
+
+
+@network
+async def test_ddp_listens_on_the_console_interface_only() -> None:
+    transport, _ = await ddp._open("127.0.0.1")
+    try:
+        assert transport.get_extra_info("sockname")[0] == "127.0.0.1"  # not 0.0.0.0
     finally:
         transport.close()
 

@@ -250,7 +250,8 @@ class PsnClient:
                         self._tokens.pop("access_token", None)
                         continue
                     if response.status >= 400:
-                        raise PsnError(f"{url} answered {response.status}")
+                        # Not the URL: the presence one holds the account ID, and errors get logged.
+                        raise PsnError(f"PlayStation Network answered {response.status}")
                     return await response.json(content_type=None)
             except aiohttp.ClientError as err:
                 raise PsnError(str(err)) from err

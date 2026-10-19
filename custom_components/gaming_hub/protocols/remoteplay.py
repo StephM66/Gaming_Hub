@@ -29,7 +29,7 @@ import struct
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from .ddp import resolve_ipv4
+from .ddp import local_address, resolve_ipv4
 from .rp_keys import (
     PS5_AERO_KEYS,
     PS5_AUTH_NONCE_KEYS,
@@ -306,15 +306,16 @@ async def _announce_registration(host: str, port: int, local_port: int, timeout:
     loop = asyncio.get_running_loop()
     try:
         console = await resolve_ipv4(host)
+        local = local_address(console)
     except OSError as err:
         raise RemotePlayError("cannot_connect", str(err)) from err
     try:
         transport, protocol = await loop.create_datagram_endpoint(
-            lambda: _SearchProtocol(console), local_addr=("0.0.0.0", local_port)
+            lambda: _SearchProtocol(console), local_addr=(local, local_port)
         )
     except OSError:
         transport, protocol = await loop.create_datagram_endpoint(
-            lambda: _SearchProtocol(console), local_addr=("0.0.0.0", 0)
+            lambda: _SearchProtocol(console), local_addr=(local, 0)
         )
     try:
         for _ in range(3):

@@ -123,7 +123,7 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self.psn_platform = PSN_PLATFORMS.get(key)
         self._psn_next = 0.0
         self._psn_was_on = False
-        self._psn_reauth = False
+        self.psn_reauth = False
 
     @property
     def sensor_keys(self) -> tuple[str, ...]:
@@ -208,7 +208,7 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
 
     async def _async_update_psn(self, console_on: bool, now: datetime) -> None:
         """Poll the PlayStation Network account, more often while the console is on."""
-        if self.psn is None or self._psn_reauth:
+        if self.psn is None or self.psn_reauth:
             return
         just_on = console_on and not self._psn_was_on
         self._psn_was_on = console_on
@@ -219,7 +219,7 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             self.psn_status = await self.psn.async_get_status()
         except PsnAuthError:
             # Keep the console working; ask for a new NPSSO token.
-            self._psn_reauth = True
+            self.psn_reauth = True
             self.psn_status = None
             self.config_entry.async_start_reauth(self.hass)
         except PsnError as err:
