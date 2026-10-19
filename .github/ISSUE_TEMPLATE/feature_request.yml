@@ -1,0 +1,27 @@
+name: Idée
+description: Une fonction, une donnée ou une console à ajouter.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Le besoin
+      description: Ce que vous voudriez faire, et pourquoi.
+    validations:
+      required: true
+  - type: input
+    id: console
+    attributes:
+      label: Console concernée
+      placeholder: PS5, Switch 2, Xbox Series X…
+  - type: textarea
+    id: how
+    attributes:
+      label: Piste
+      description: Protocole, projet existant ou documentation qui pourrait servir.
+  - type: checkboxes
+    id: tester
+    attributes:
+      label: Essais
+      options:
+        - label: Je peux tester sur ma console.

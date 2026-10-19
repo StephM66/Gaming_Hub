@@ -2,6 +2,11 @@
 
 # Gaming Hub
 
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
+[![Version](https://img.shields.io/github/v/release/StephM66/Gaming_Hub?include_prereleases)](https://github.com/StephM66/Gaming_Hub/releases)
+[![tests](https://github.com/StephM66/Gaming_Hub/actions/workflows/tests.yml/badge.svg)](https://github.com/StephM66/Gaming_Hub/actions/workflows/tests.yml)
+[![Licence MIT](https://img.shields.io/github/license/StephM66/Gaming_Hub)](LICENSE)
+
 Intégration Home Assistant qui réunit les consoles de salon dans un seul hub : allumage et
 extinction, jeu en cours (titre et jaquette), contrôle parental commun, consommation électrique.
 
@@ -34,7 +39,7 @@ Ce qui reste est imposé par les consoles, pas par le hub :
 
 **Gaming Hub est fourni en l'état, sans aucune garantie** : ni de fonctionnement, ni de mise à
 jour, ni de maintenance, ni de support. C'est un projet personnel, publié pour qui veut s'en
-servir ou le reprendre (licence CC0).
+servir ou le reprendre (licence MIT).
 
 - Il s'appuie sur des interfaces non officielles (PlayStation Network, Lecture à distance,
   webMAN MOD, Switch Assistant) qui peuvent changer et casser une fonction sans préavis.
@@ -82,6 +87,11 @@ elle-même sur le réseau local. Passer par MQTT demanderait un programme interm
 que pour la Switch.
 
 ## Installation
+
+[![Ouvrir dans HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=StephM66&repository=Gaming_Hub&category=integration)
+[![Ajouter une console](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=gaming_hub)
+
+Les deux boutons font les étapes 1 et 3 depuis votre Home Assistant. À la main :
 
 1. HACS → ⋮ → Dépôts personnalisés → `https://github.com/StephM66/Gaming_Hub`, type « Intégration ».
 2. Installer **Gaming Hub**, redémarrer Home Assistant.
@@ -248,6 +258,13 @@ custom_components/gaming_hub/
 Ajouter une console revient à écrire un pilote : `async_fetch()` renvoie un `ConsoleSnapshot`
 (alimentation, jeu, image, attributs), et les commandes disponibles sont déclarées. Le contrôle
 parental, la consommation et les entités communes viennent du hub.
+
+## Signaler un problème, contribuer
+
+- Bug ou idée : [issues](https://github.com/StephM66/Gaming_Hub/issues/new/choose), en joignant
+  les diagnostics de la console (secrets et identifiants masqués).
+- Faille de sécurité : en privé, voir [`SECURITY.md`](SECURITY.md).
+- Code, nouvelle console, publication d'une version : [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Développement
 
