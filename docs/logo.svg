@@ -1,94 +1,101 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Gaming Hub logo. Render with tools/render_logo.sh. -->
   <defs>
     <linearGradient id="rim" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#1747d6"/>
-      <stop offset="0.55" stop-color="#139fe8"/>
-      <stop offset="1" stop-color="#16e3c4"/>
+      <stop offset="0" stop-color="#5b21d6"/>
+      <stop offset="0.55" stop-color="#c026d3"/>
+      <stop offset="1" stop-color="#ff6b8b"/>
     </linearGradient>
     <linearGradient id="core" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#0a1f4d"/>
-      <stop offset="1" stop-color="#0e4c8f"/>
+      <stop offset="0" stop-color="#170a3a"/>
+      <stop offset="1" stop-color="#3a1272"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.62" cy="0.38" r="0.6">
-      <stop offset="0" stop-color="#1b7fd1" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#1b7fd1" stop-opacity="0"/>
+    <radialGradient id="glow" cx="0.62" cy="0.36" r="0.6">
+      <stop offset="0" stop-color="#b03adf" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#b03adf" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="letter" gradientUnits="userSpaceOnUse" x1="375" y1="302" x2="571" y2="711">
+    <linearGradient id="letter" gradientUnits="userSpaceOnUse" x1="363" y1="294" x2="562" y2="707">
       <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.55" stop-color="#f1f6ff"/>
-      <stop offset="1" stop-color="#cfe1fd"/>
+      <stop offset="0.55" stop-color="#f6f0ff"/>
+      <stop offset="1" stop-color="#ddd0fb"/>
     </linearGradient>
-    <linearGradient id="fold" gradientUnits="userSpaceOnUse" x1="375" y1="388" x2="655" y2="668">
-      <stop offset="0" stop-color="#3b7be8" stop-opacity="0.35"/>
-      <stop offset="1" stop-color="#2f6fe0" stop-opacity="0"/>
+    <linearGradient id="fold" gradientUnits="userSpaceOnUse" x1="363" y1="380" x2="647" y2="664">
+      <stop offset="0" stop-color="#8b5cf6" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2a7be6"/>
-      <stop offset="1" stop-color="#14408f"/>
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#3b0f8a"/>
     </linearGradient>
-    <linearGradient id="pad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1fd1f0"/>
-      <stop offset="1" stop-color="#19d99a"/>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7a59"/>
+      <stop offset="1" stop-color="#ff3d8b"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd84d"/>
+      <stop offset="1" stop-color="#ff9d1f"/>
     </linearGradient>
     <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2ee6a0"/>
-      <stop offset="1" stop-color="#0f8f86"/>
+      <stop offset="0" stop-color="#34e6a8"/>
+      <stop offset="1" stop-color="#0d8f7f"/>
     </linearGradient>
     <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#020c24" flood-opacity="0.45"/>
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0b0420" flood-opacity="0.5"/>
     </filter>
     <filter id="rimshadow" x="-10%" y="-10%" width="120%" height="125%">
-      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#0b2f73" flood-opacity="0.35"/>
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#3b0f8a" flood-opacity="0.35"/>
     </filter>
-    <clipPath id="inside"><path d="M467.4,208.7 Q512.0,182.0 556.6,208.7 L742.8,320.3 Q787.4,347.0 787.4,399.0 L787.4,625.0 Q787.4,677.0 742.8,703.7 L556.6,815.3 Q512.0,842.0 467.4,815.3 L281.2,703.7 Q236.6,677.0 236.6,625.0 L236.6,399.0 Q236.6,347.0 281.2,320.3 Z"/></clipPath>
   </defs>
 
   <!-- Hexagonal badge -->
   <path d="M451.9,175.9 Q512.0,140.0 572.1,175.9 L763.7,290.1 Q823.8,326.0 823.8,396.0 L823.8,628.0 Q823.8,698.0 763.7,733.9 L572.1,848.1 Q512.0,884.0 451.9,848.1 L260.3,733.9 Q200.2,698.0 200.2,628.0 L200.2,396.0 Q200.2,326.0 260.3,290.1 Z" fill="url(#rim)" filter="url(#rimshadow)"/>
   <path d="M467.4,208.7 Q512.0,182.0 556.6,208.7 L742.8,320.3 Q787.4,347.0 787.4,399.0 L787.4,625.0 Q787.4,677.0 742.8,703.7 L556.6,815.3 Q512.0,842.0 467.4,815.3 L281.2,703.7 Q236.6,677.0 236.6,625.0 L236.6,399.0 Q236.6,347.0 281.2,320.3 Z" fill="url(#core)"/>
   <path d="M467.4,208.7 Q512.0,182.0 556.6,208.7 L742.8,320.3 Q787.4,347.0 787.4,399.0 L787.4,625.0 Q787.4,677.0 742.8,703.7 L556.6,815.3 Q512.0,842.0 467.4,815.3 L281.2,703.7 Q236.6,677.0 236.6,625.0 L236.6,399.0 Q236.6,347.0 281.2,320.3 Z" fill="url(#glow)"/>
-  <path d="M467.4,208.7 Q512.0,182.0 556.6,208.7 L742.8,320.3 Q787.4,347.0 787.4,399.0 L787.4,625.0 Q787.4,677.0 742.8,703.7 L556.6,815.3 Q512.0,842.0 467.4,815.3 L281.2,703.7 Q236.6,677.0 236.6,625.0 L236.6,399.0 Q236.6,347.0 281.2,320.3 Z" fill="none" stroke="#7fe9ff" stroke-opacity="0.35" stroke-width="3"/>
+  <path d="M467.4,208.7 Q512.0,182.0 556.6,208.7 L742.8,320.3 Q787.4,347.0 787.4,399.0 L787.4,625.0 Q787.4,677.0 742.8,703.7 L556.6,815.3 Q512.0,842.0 467.4,815.3 L281.2,703.7 Q236.6,677.0 236.6,625.0 L236.6,399.0 Q236.6,347.0 281.2,320.3 Z" fill="none" stroke="#f0a8ff" stroke-opacity="0.35" stroke-width="3"/>
 
-  <!-- Console list panel (left) -->
+  <!-- Console list (left) -->
   <g filter="url(#soft)">
     <rect x="222" y="392" width="176" height="276" rx="26" fill="url(#panel)"/>
-    <rect x="222" y="392" width="176" height="276" rx="26" fill="none" stroke="#7cc4ff" stroke-opacity="0.5" stroke-width="3"/>
-    <rect x="240" y="416" width="140" height="66" rx="16" fill="#0f3a7e" opacity="0.85"/>
-    <rect x="240" y="496" width="140" height="66" rx="16" fill="#0f3a7e" opacity="0.85"/>
-    <rect x="240" y="576" width="140" height="66" rx="16" fill="#0f3a7e" opacity="0.85"/>
-    <circle cx="268" cy="449" r="14" fill="#2ee67f"/>
-    <circle cx="268" cy="529" r="14" fill="#1fb6ff"/>
+    <rect x="222" y="392" width="176" height="276" rx="26" fill="none" stroke="#c4a5ff" stroke-opacity="0.5" stroke-width="3"/>
+    <rect x="240" y="416" width="140" height="66" rx="16" fill="#2a0b66" opacity="0.85"/>
+    <rect x="240" y="496" width="140" height="66" rx="16" fill="#2a0b66" opacity="0.85"/>
+    <rect x="240" y="576" width="140" height="66" rx="16" fill="#2a0b66" opacity="0.85"/>
+    <circle cx="268" cy="449" r="14" fill="#34e68a"/>
+    <circle cx="268" cy="529" r="14" fill="#38c8ff"/>
     <circle cx="268" cy="609" r="14" fill="#ffc21a"/>
-    <rect x="292" y="442" width="54" height="13" rx="6.5" fill="#9cc3f5"/>
-    <rect x="292" y="522" width="54" height="13" rx="6.5" fill="#9cc3f5"/>
-    <rect x="292" y="602" width="54" height="13" rx="6.5" fill="#9cc3f5"/>
+    <rect x="292" y="442" width="54" height="13" rx="6.5" fill="#c9b6f5"/>
+    <rect x="292" y="522" width="54" height="13" rx="6.5" fill="#c9b6f5"/>
+    <rect x="292" y="602" width="54" height="13" rx="6.5" fill="#c9b6f5"/>
   </g>
 
-  <!-- Letter G -->
+  <!-- Letter G, its crossbar is a gamepad -->
   <g filter="url(#soft)">
-    <path d="M622.2,438.0 A140,140 0 1 0 654.9,523.1" fill="none" stroke="url(#letter)" stroke-width="86" stroke-linecap="butt"/>
-    <path d="M622.2,438.0 A140,140 0 1 0 654.9,523.1" fill="none" stroke="url(#fold)" stroke-width="39" stroke-linecap="butt" transform="translate(0 4)"/>
-    <path d="M535.0,539.0 L698.0,539.0" fill="none" stroke="url(#letter)" stroke-width="69" stroke-linecap="butt"/>
+    <path d="M613.8,430.7 A142,142 0 1 0 646.7,531.9" fill="none" stroke="url(#letter)" stroke-width="86" stroke-linecap="butt"/>
+    <path d="M613.8,430.7 A142,142 0 1 0 646.7,531.9" fill="none" stroke="url(#fold)" stroke-width="39" stroke-linecap="butt" transform="translate(0 4)"/>
+    <g transform="translate(597 540) scale(0.86)">
+      <path d="M-118,-46 C-100,-70 -60,-66 -40,-56 L40,-56 C60,-66 100,-70 118,-46
+               C142,-12 156,60 132,82 C112,100 86,84 62,52 L-62,52
+               C-86,84 -112,100 -132,82 C-156,60 -142,-12 -118,-46 Z" fill="url(#letter)"/>
+      <path d="M-118,-46 C-100,-70 -60,-66 -40,-56 L40,-56 C60,-66 100,-70 118,-46" fill="none" stroke="#ffffff" stroke-opacity="0.8" stroke-width="5" stroke-linecap="round"/>
+      <rect x="-96" y="-14" width="60" height="20" rx="5" fill="#3a1078"/>
+      <rect x="-76" y="-34" width="20" height="60" rx="5" fill="#3a1078"/>
+      <circle cx="70" cy="-26" r="11" fill="#3a1078"/>
+      <circle cx="94" cy="-4" r="11" fill="#3a1078"/>
+      <circle cx="70" cy="18" r="11" fill="#3a1078"/>
+      <circle cx="46" cy="-4" r="11" fill="#3a1078"/>
+      <rect x="-16" y="-30" width="32" height="10" rx="5" fill="#3a1078" opacity="0.6"/>
+    </g>
   </g>
 
-  <!-- Gamepad (right) -->
-  <g filter="url(#soft)" transform="translate(700 372) rotate(-10) scale(0.7)">
-    <path d="M-118,-46 C-100,-70 -60,-66 -40,-56 L40,-56 C60,-66 100,-70 118,-46
-             C142,-12 156,60 132,82 C112,100 86,84 62,52 L-62,52
-             C-86,84 -112,100 -132,82 C-156,60 -142,-12 -118,-46 Z" fill="url(#pad)"/>
-    <path d="M-118,-46 C-100,-70 -60,-66 -40,-56 L40,-56 C60,-66 100,-70 118,-46" fill="none" stroke="#bff7ff" stroke-opacity="0.7" stroke-width="5" stroke-linecap="round"/>
-    <rect x="-96" y="-14" width="60" height="20" rx="5" fill="#0b2d63"/>
-    <rect x="-76" y="-34" width="20" height="60" rx="5" fill="#0b2d63"/>
-    <circle cx="70" cy="-26" r="11" fill="#0b2d63"/>
-    <circle cx="94" cy="-4" r="11" fill="#0b2d63"/>
-    <circle cx="70" cy="18" r="11" fill="#0b2d63"/>
-    <circle cx="46" cy="-4" r="11" fill="#0b2d63"/>
-    <rect x="-16" y="-30" width="32" height="10" rx="5" fill="#0b2d63" opacity="0.7"/>
+  <!-- Energy (top right) -->
+  <g filter="url(#soft)" transform="translate(712 352)">
+    <circle r="50" fill="#2a0b66" stroke="url(#bolt)" stroke-width="6"/>
+    <path d="M8,-34 L-22,6 L-2,6 L-10,34 L22,-8 L2,-8 Z" fill="url(#bolt)" stroke="#ffe79a" stroke-width="2" stroke-linejoin="round"/>
   </g>
 
-  <!-- Parental control shield (bottom right) -->
-  <g filter="url(#soft)" transform="translate(722 672) scale(0.9)">
-    <path d="M0,-82 C28,-64 54,-58 78,-58 C78,6 62,54 0,92 C-62,54 -78,6 -78,-58 C-54,-58 -28,-64 0,-82 Z" fill="url(#shield)" stroke="#5ff5c0" stroke-width="5"/>
+  <!-- Parental control (bottom right) -->
+  <g filter="url(#soft)" transform="translate(724 680) scale(0.9)">
+    <path d="M0,-82 C28,-64 54,-58 78,-58 C78,6 62,54 0,92 C-62,54 -78,6 -78,-58 C-54,-58 -28,-64 0,-82 Z" fill="url(#shield)" stroke="#6ff7c6" stroke-width="5"/>
     <path d="M-30,6 L-8,28 L34,-16" fill="none" stroke="#ffffff" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>
