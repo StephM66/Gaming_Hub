@@ -1,3 +1,5 @@
+<p align="center"><img src="custom_components/gaming_hub/brand/icon@2x.png" alt="Gaming Hub" width="200"></p>
+
 # Gaming Hub
 
 Intégration Home Assistant qui réunit les consoles de salon dans un seul hub : allumage et
@@ -53,7 +55,8 @@ que pour la Switch.
 2. Installer **Gaming Hub**, redémarrer Home Assistant.
 3. Paramètres → Appareils et services → Ajouter une intégration → **Gaming Hub**, puis choisir la console.
 
-Home Assistant 2025.2 ou plus récent.
+Home Assistant 2025.2 ou plus récent. Le logo s'affiche dans Home Assistant à partir de 2026.3,
+qui lit les images fournies par l'intégration (`brand/`).
 
 ## Ajouter une console
 
@@ -217,5 +220,8 @@ python3.13 -m venv .venv && .venv/bin/pip install -r requirements_test.txt
 - `tests/test_protocol_ps3_switch.py` : page webMAN reconstituée depuis le source de webMAN MOD, sujets Switch Assistant.
 - `tests/test_logic.py` : contrôle parental, temps de jeu, énergie.
 - `tests/test_config_flow.py`, `tests/test_entities.py` : intégration dans un vrai Home Assistant (MQTT simulé).
+
+Logo : source vectorielle `docs/logo.svg`, rendue en `brand/icon.png` (256 px) et
+`brand/icon@2x.png` (512 px) par `tools/render_logo.sh` (Chromium et ImageMagick).
 
 Crédits et licences des projets étudiés ou portés : [`NOTICE.md`](NOTICE.md).
