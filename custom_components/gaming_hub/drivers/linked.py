@@ -4,8 +4,8 @@ The state comes from one source entity:
 
 - a media player (Xbox, PlayStation 4, PlayStation Network, Android TV…):
   power, current game and artwork, power commands;
-- a switch, binary sensor, input boolean or device tracker: on/off only;
-- a power sensor (W): on above a threshold (retro consoles on a smart plug).
+- any other entity: on/off only, read by ``presence.is_present`` (switch, binary sensor,
+  device tracker or ping, HDMI switch input "linked", power sensor above a threshold…).
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from homeassistant.const import (
     ATTR_ENTITY_ID,
     ATTR_ENTITY_PICTURE,
     ATTR_SUPPORTED_FEATURES,
-    STATE_HOME,
     STATE_IDLE,
     STATE_ON,
     STATE_PAUSED,
@@ -30,6 +29,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from ..const import CONF_ON_THRESHOLD, CONF_SOURCE_ENTITY
 from ..models import ConsoleSnapshot, PowerState
+from ..presence import is_present
 from .base import ConsoleDriver, unsupported
 
 _PLAYING = {STATE_PLAYING, STATE_PAUSED, "buffering"}
@@ -104,13 +104,8 @@ class LinkedDriver(ConsoleDriver):
                 image_url=image,
                 entity_picture=picture,
             )
-        if self._domain == "sensor":
-            try:
-                on = float(value) >= self._threshold
-            except ValueError:
-                on = False
-        else:
-            on = value in (STATE_ON, STATE_HOME)
+        threshold = self._threshold if self._domain == "sensor" else None
+        on = is_present(state, threshold)
         return ConsoleSnapshot(PowerState.ON if on else PowerState.OFF)
 
     async def _call(self, service: str) -> None:

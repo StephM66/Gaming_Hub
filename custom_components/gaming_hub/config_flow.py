@@ -439,7 +439,7 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_ON_THRESHOLD: user_input.get(CONF_ON_THRESHOLD, 5),
                 CONF_NAME: user_input.get(CONF_NAME) or default_name,
             }
-            if user_input[CONF_PRESET] == LinkedPreset.PS4:
+            if PSN_PLATFORMS.get(user_input[CONF_PRESET]):
                 return await self.async_step_psn()
             return self._create()
         schema = vol.Schema(

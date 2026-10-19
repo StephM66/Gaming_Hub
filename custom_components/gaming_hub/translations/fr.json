@@ -162,6 +162,7 @@
       "options": {
         "xbox": "Xbox",
         "ps4": "PlayStation 4",
+        "ps3": "PlayStation 3 (sans modification)",
         "pc": "PC / Steam Deck",
         "retro": "Console rétro",
         "other": "Autre"

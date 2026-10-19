@@ -10,6 +10,9 @@ which PS5-MQTT also uses.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
+import hmac
+import re
 import time
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
@@ -75,6 +78,22 @@ class PsnStatus:
     sessions: dict[str, PsnSession] = field(default_factory=dict)
 
 
+# Sony's title metadata store signs PS3 icon paths with this public key (from psnawp, MIT).
+_TMDB_KEY = bytes.fromhex(
+    "F5DE66D2680E255B2DF79E74F890EBF349262F618BCAE2A9ACCDEE5156CE8DF2"
+    "CDF2D48C71173CDC2594465B87405D197CF1AED3B7E9671EEB56CA6753C2E6B0"
+)
+_PS3_TITLE_ID = re.compile(r"[A-Z]{4}\d{5}_\d{2}")
+
+
+def ps3_icon_url(title_id: object) -> str | None:
+    """Icon of a PS3 game (``ICON0.PNG``), which the presence does not carry."""
+    if not isinstance(title_id, str) or not _PS3_TITLE_ID.fullmatch(title_id):
+        return None
+    digest = hmac.new(_TMDB_KEY, title_id.encode(), hashlib.sha1).hexdigest().upper()
+    return f"https://tmdb.np.dl.playstation.net/tmdb/{title_id}_{digest}/ICON0.PNG"
+
+
 def parse_status(profile: dict[str, Any], presence: dict[str, Any] | None) -> PsnStatus:
     """Combine the legacy profile (PS3/PS4 presence, trophies) and the PS5-era presence."""
     data = profile.get("profile", profile)
@@ -89,7 +108,8 @@ def parse_status(profile: dict[str, Any], presence: dict[str, Any] | None) -> Ps
             online=item.get("onlineStatus") not in (None, "offline"),
             title=_text(item.get("titleName")),
             title_id=_text(item.get("npTitleId")),
-            image=_image(item.get("npTitleIconUrl")),
+            image=_image(item.get("npTitleIconUrl"))
+            or (ps3_icon_url(item.get("npTitleId")) if platform == "PS3" else None),
         )
     # Current presence: PS5 (and PS4 when it is the primary platform).
     basic = (presence or {}).get("basicPresence") or {}

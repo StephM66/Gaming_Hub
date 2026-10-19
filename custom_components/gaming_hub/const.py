@@ -27,6 +27,7 @@ class LinkedPreset(StrEnum):
 
     XBOX = "xbox"
     PS4 = "ps4"
+    PS3 = "ps3"  # unmodified PS3: state from any entity, game from the PSN account
     PC = "pc"
     RETRO = "retro"
     OTHER = "other"
@@ -68,7 +69,7 @@ DEFAULT_SWITCH_IMAGE_TEMPLATE: Final = "https://tinfoil.media/ti/{title_id}/256/
 
 DEVICE_INFO: Final[dict[str, tuple[str, str]]] = {
     ConsoleKind.PS5: ("Sony", "PlayStation 5"),
-    ConsoleKind.PS3: ("Sony", "PlayStation 3"),
+    ConsoleKind.PS3: ("Sony", "PlayStation 3"),  # also LinkedPreset.PS3 (same key)
     ConsoleKind.SWITCH: ("Nintendo", "Switch"),
     LinkedPreset.XBOX: ("Microsoft", "Xbox"),
     LinkedPreset.PS4: ("Sony", "PlayStation 4"),
