@@ -14,6 +14,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.gaming_hub.const import DOMAIN
+from custom_components.gaming_hub.protocols.psn import PsnAuthError, PsnError, PsnStatus
 from custom_components.gaming_hub.protocols.remoteplay import Ps5Credentials, RemotePlayError
 from custom_components.gaming_hub.protocols.webman import WebmanError, WebmanStatus
 
@@ -21,6 +22,8 @@ from .conftest import REGIST_KEY, RP_KEY
 
 CREDS = Ps5Credentials(REGIST_KEY, RP_KEY)
 SETUP = "custom_components.gaming_hub.async_setup_entry"
+PSN_STATUS = "custom_components.gaming_hub.protocols.psn.PsnClient.async_get_status"
+ACCOUNT = PsnStatus(account_id="1234567890123456789", online_id="Steph66")
 
 
 @pytest.fixture(autouse=True)
@@ -46,6 +49,9 @@ async def _ps5_to_pairing(hass: HomeAssistant):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"host": "192.168.1.20"}
     )
+    # PlayStation Network account: optional, skipped here.
+    assert (result["type"], result["step_id"]) == (FlowResultType.FORM, "psn")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.MENU
     return result
 
@@ -76,6 +82,7 @@ async def test_ps5_pair_with_pin(hass: HomeAssistant, mock_ddp) -> None:
         "host": "192.168.1.20",
         "host_id": "A1B2C3D4E5F6",
         "name": "PS5-Salon",
+        "npsso": None,
         "regist_key": REGIST_KEY,
         "rp_key": RP_KEY,
         "passcode": "1234",
@@ -151,6 +158,10 @@ async def test_ps5_reconfigure_pairs_later(hass: HomeAssistant, mock_ddp, ps5_en
         data={k: v for k, v in ps5_entry.data.items() if k not in ("regist_key", "rp_key")},
     )
     result = await ps5_entry.start_reconfigure_flow(hass)
+    assert result["menu_options"] == ["psn", "ps5_pairing"]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "ps5_pairing"}
+    )
     assert result["menu_options"] == ["ps5_register"]
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"next_step_id": "ps5_register"}
@@ -178,6 +189,11 @@ async def test_ps3(hass: HomeAssistant) -> None:
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"host": "192.168.1.30", "port": 80, "name": "PS3 Chambre"}
         )
+    assert result["step_id"] == "psn"
+    with patch(PSN_STATUS, AsyncMock(return_value=ACCOUNT)):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"npsso": " abcdef "}
+        )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["result"].unique_id == "00:1F:A7:12:34:56"
     assert result["data"] == {
@@ -185,6 +201,8 @@ async def test_ps3(hass: HomeAssistant) -> None:
         "host": "192.168.1.30",
         "port": 80,
         "name": "PS3 Chambre",
+        "npsso": "abcdef",
+        "account_id": "1234567890123456789",
     }
 
 
@@ -256,3 +274,47 @@ async def test_options(hass: HomeAssistant, ps5_entry) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert ps5_entry.options["power_entity"] == "sensor.prise_ps5_power"
     assert ps5_entry.options["watts_standby"] == 3.5
+
+
+async def test_ps5_psn_account_fills_the_pairing(hass: HomeAssistant, mock_ddp) -> None:
+    result = await _menu(hass, "ps5")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"host": "192.168.1.20"}
+    )
+    for error, expected in (
+        (PsnAuthError("x"), "invalid_npsso"),
+        (PsnError("x"), "psn_unavailable"),
+    ):
+        with patch(PSN_STATUS, AsyncMock(side_effect=error)):
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"], {"npsso": "abc"}
+            )
+        assert result["errors"] == {"base": expected}
+    with patch(PSN_STATUS, AsyncMock(return_value=ACCOUNT)):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {"npsso": "abc"})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "ps5_register"}
+    )
+    account = next(key for key in result["data_schema"].schema if key == "account_id")
+    assert account.description == {"suggested_value": "1234567890123456789"}
+
+
+async def test_psn_reauth(hass: HomeAssistant, ps5_entry) -> None:
+    ps5_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(ps5_entry, data={**ps5_entry.data, "npsso": "old"})
+    result = await ps5_entry.start_reauth_flow(hass)
+    assert result["step_id"] == "reauth_confirm"
+    with patch(PSN_STATUS, AsyncMock(return_value=ACCOUNT)):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {"npsso": "new"})
+    assert (result["type"], result["reason"]) == (FlowResultType.ABORT, "reauth_successful")
+    assert ps5_entry.data["npsso"] == "new"
+
+
+async def test_ps3_reconfigure_links_psn_later(hass: HomeAssistant, ps3_entry) -> None:
+    ps3_entry.add_to_hass(hass)
+    result = await ps3_entry.start_reconfigure_flow(hass)
+    assert result["step_id"] == "psn"
+    with patch(PSN_STATUS, AsyncMock(return_value=ACCOUNT)):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {"npsso": "abc"})
+    assert (result["type"], result["reason"]) == (FlowResultType.ABORT, "reconfigure_successful")
+    assert ps3_entry.data["account_id"] == "1234567890123456789"

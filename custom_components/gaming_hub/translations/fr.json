@@ -37,7 +37,7 @@
       },
       "ps5_register": {
         "title": "Appairer avec un code PIN",
-        "description": "Sur la PS5 : Paramètres > Système > Lecture à distance > Associer un appareil, puis saisir le code à 8 chiffres affiché. L'identifiant de compte est l'identifiant PSN numérique (celui qu'utilise aussi l'intégration PlayStation Network).",
+        "description": "Sur la PS5 : Paramètres > Système > Lecture à distance > Associer un appareil, puis saisir le code à 8 chiffres affiché. L'identifiant de compte est rempli si le compte PlayStation Network a été associé à l'étape précédente.",
         "data": {
           "account_id": "Identifiant du compte PSN",
           "pin": "Code PIN",
@@ -79,6 +79,27 @@
           "name": "Nom",
           "on_threshold": "Allumée au-delà de (capteur de puissance uniquement)"
         }
+      },
+      "psn": {
+        "title": "Compte PlayStation Network (facultatif)",
+        "description": "Donne le jeu en cours avec sa jaquette, le statut en ligne, les trophées et PlayStation Plus, sans autre intégration. Se connecter sur playstation.com, ouvrir {npsso_url} et copier la valeur de « npsso ». Laisser vide pour ignorer.",
+        "data": {
+          "npsso": "Jeton NPSSO"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Jeton PlayStation Network expiré",
+        "description": "Le jeton NPSSO dure environ deux mois. Se connecter sur playstation.com, ouvrir {npsso_url} et copier la nouvelle valeur de « npsso ».",
+        "data": {
+          "npsso": "Jeton NPSSO"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigurer",
+        "menu_options": {
+          "psn": "Compte PlayStation Network",
+          "ps5_pairing": "Appairage pour allumer et éteindre"
+        }
       }
     },
     "error": {
@@ -89,14 +110,17 @@
       "invalid_account": "Identifiant de compte PSN invalide.",
       "not_in_pairing_mode": "La console n'affiche pas de code d'association.",
       "in_use": "La Lecture à distance est déjà utilisée.",
-      "pairing_failed": "Échec de l'appairage."
+      "pairing_failed": "Échec de l'appairage.",
+      "invalid_npsso": "Ce jeton NPSSO n'est pas valide (expiré, ou copié incomplètement).",
+      "psn_unavailable": "Le PlayStation Network n'a pas répondu, réessayer plus tard."
     },
     "abort": {
       "already_configured": "Cette console est déjà configurée.",
       "mqtt_required": "Configurer d'abord l'intégration MQTT.",
       "invalid_discovery": "Sujet MQTT inattendu.",
       "reconfigure_unsupported": "Rien à reconfigurer pour cette console : la supprimer puis l'ajouter à nouveau.",
-      "reconfigure_successful": "Appairage mis à jour."
+      "reconfigure_successful": "Appairage mis à jour.",
+      "reauth_successful": "Compte PlayStation Network mis à jour."
     }
   },
   "options": {
@@ -105,7 +129,6 @@
         "title": "Liens et consommation",
         "data": {
           "power_entity": "Capteur de puissance (prise connectée)",
-          "now_playing_entity": "Source du jeu en cours",
           "turn_on_entity": "Allumer avec",
           "turn_off_entity": "Éteindre avec",
           "block_entity": "Blocage parental avec",
@@ -116,7 +139,6 @@
         },
         "data_description": {
           "power_entity": "La puissance mesurée remplace l'estimation.",
-          "now_playing_entity": "Lecteur multimédia qui donne le jeu quand la console ne le fait pas, par exemple l'intégration PlayStation Network.",
           "turn_on_entity": "Script, bouton ou interrupteur qui remplace la commande native (PS3 : HDMI-CEC, Bluetooth, pousse-bouton).",
           "turn_off_entity": "Script, bouton ou interrupteur qui remplace la commande native.",
           "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé, par exemple l'interrupteur de suspension de l'intégration Contrôle parental Nintendo Switch.",
@@ -138,18 +160,44 @@
   },
   "entity": {
     "binary_sensor": {
-      "playing": { "name": "En jeu" },
-      "charging": { "name": "En charge" }
+      "playing": {
+        "name": "En jeu"
+      },
+      "charging": {
+        "name": "En charge"
+      },
+      "screen_on": {
+        "name": "Écran"
+      },
+      "ps_plus": {
+        "name": "PlayStation Plus"
+      }
     },
     "button": {
-      "restart": { "name": "Redémarrer" }
+      "restart": {
+        "name": "Redémarrer"
+      },
+      "quit_game": {
+        "name": "Quitter le jeu"
+      }
+    },
+    "camera": {
+      "screen": {
+        "name": "Écran"
+      }
     },
     "notify": {
-      "message": { "name": "Message à l'écran" }
+      "message": {
+        "name": "Message à l'écran"
+      }
     },
     "number": {
-      "daily_limit": { "name": "Temps de jeu quotidien" },
-      "warning": { "name": "Préavis avant la limite" }
+      "daily_limit": {
+        "name": "Temps de jeu quotidien"
+      },
+      "warning": {
+        "name": "Préavis avant la limite"
+      }
     },
     "select": {
       "parental_action": {
@@ -161,10 +209,18 @@
       }
     },
     "sensor": {
-      "game": { "name": "Jeu en cours" },
-      "power": { "name": "Puissance" },
-      "energy": { "name": "Énergie" },
-      "playtime_today": { "name": "Temps de jeu aujourd'hui" },
+      "game": {
+        "name": "Jeu en cours"
+      },
+      "power": {
+        "name": "Puissance"
+      },
+      "energy": {
+        "name": "Énergie"
+      },
+      "playtime_today": {
+        "name": "Temps de jeu aujourd'hui"
+      },
       "parental_status": {
         "name": "Contrôle parental",
         "state": {
@@ -174,22 +230,122 @@
           "blocked": "Bloqué"
         }
       },
-      "parental_remaining": { "name": "Temps de jeu restant" },
-      "cpu_temperature": { "name": "Température CPU" },
-      "rsx_temperature": { "name": "Température RSX" },
-      "fan_speed": { "name": "Ventilateur" },
-      "firmware": { "name": "Firmware" },
-      "system_version": { "name": "Version du système" },
-      "battery": { "name": "Batterie" },
-      "battery_temperature": { "name": "Température de la batterie" },
-      "controllers": { "name": "Manettes" }
+      "parental_remaining": {
+        "name": "Temps de jeu restant"
+      },
+      "cpu_temperature": {
+        "name": "Température CPU"
+      },
+      "rsx_temperature": {
+        "name": "Température RSX"
+      },
+      "fan_speed": {
+        "name": "Ventilateur"
+      },
+      "firmware": {
+        "name": "Firmware"
+      },
+      "system_version": {
+        "name": "Version du système"
+      },
+      "battery": {
+        "name": "Batterie"
+      },
+      "battery_temperature": {
+        "name": "Température de la batterie"
+      },
+      "controllers": {
+        "name": "Manettes"
+      },
+      "fan_mode": {
+        "name": "Mode du ventilateur",
+        "state": {
+          "syscon": "Console (SYSCON)",
+          "auto": "Automatique",
+          "dynamic": "Dynamique",
+          "manual": "Manuel",
+          "ps2": "Mode PS2"
+        }
+      },
+      "fan_target": {
+        "name": "Température cible du ventilateur"
+      },
+      "session_time": {
+        "name": "Durée de la partie"
+      },
+      "memory_free": {
+        "name": "Mémoire libre"
+      },
+      "hdd_free": {
+        "name": "Espace disque libre"
+      },
+      "started_at": {
+        "name": "Allumée depuis"
+      },
+      "network": {
+        "name": "Connexion réseau"
+      },
+      "ip_address": {
+        "name": "Adresse IP"
+      },
+      "runtime": {
+        "name": "Utilisation totale"
+      },
+      "power_on_count": {
+        "name": "Nombre de démarrages"
+      },
+      "battery_health": {
+        "name": "Santé de la batterie"
+      },
+      "battery_voltage": {
+        "name": "Tension de la batterie"
+      },
+      "charger": {
+        "name": "Chargeur",
+        "state": {
+          "unconnected": "Débranché",
+          "enough_power": "En charge",
+          "low_power": "Chargeur trop faible",
+          "not_supported": "Chargeur non pris en charge",
+          "unknown": "Inconnu"
+        }
+      },
+      "brightness": {
+        "name": "Luminosité de l'écran"
+      },
+      "volume": {
+        "name": "Volume"
+      },
+      "audio_output": {
+        "name": "Sortie audio",
+        "state": {
+          "speaker": "Haut-parleur",
+          "headphone": "Casque",
+          "tv": "TV",
+          "usb": "USB",
+          "bluetooth": "Bluetooth",
+          "unknown": "Inconnue"
+        }
+      },
+      "psn_status": {
+        "name": "PlayStation Network"
+      },
+      "trophy_level": {
+        "name": "Niveau de trophées"
+      }
     },
     "switch": {
-      "parental_control": { "name": "Contrôle parental" }
+      "parental_control": {
+        "name": "Contrôle parental"
+      }
     },
     "time": {
-      "allowed_from": { "name": "Jeu autorisé à partir de" },
-      "allowed_until": { "name": "Jeu autorisé jusqu'à" }
+      "allowed_from": {
+        "name": "Jeu autorisé à partir de"
+      },
+      "allowed_until": {
+        "name": "Jeu autorisé jusqu'à"
+      }
     }
   },
   "exceptions": {

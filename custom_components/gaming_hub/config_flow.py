@@ -41,7 +41,7 @@ from .const import (
     CONF_IMAGE_TEMPLATE,
     CONF_KIND,
     CONF_NAME,
-    CONF_NOW_PLAYING_ENTITY,
+    CONF_NPSSO,
     CONF_ON_THRESHOLD,
     CONF_PASSCODE,
     CONF_PIN,
@@ -63,9 +63,10 @@ from .const import (
     ConsoleKind,
     LinkedPreset,
 )
-from .coordinator import profile_key
+from .coordinator import PSN_PLATFORMS, profile_key
 from .protocols import ddp, remoteplay
 from .protocols import switch_assistant as sa
+from .protocols.psn import NPSSO_URL, PsnAuthError, PsnClient, PsnError
 from .protocols.webman import DEFAULT_PORT, WebmanClient, WebmanError
 
 # Pairing failures with a dedicated message; anything else is "pairing_failed".
@@ -151,7 +152,7 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_HOST_ID: response.host_id,
                     CONF_NAME: user_input.get(CONF_NAME) or response.host_name or "PlayStation 5",
                 }
-                return await self.async_step_ps5_pairing()
+                return await self.async_step_psn()
         suggested = ""
         if user_input is None:
             try:
@@ -223,17 +224,12 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = err.reason if err.reason in PAIRING_ERRORS else "pairing_failed"
             else:
                 return await self._finish_pairing(creds, user_input.get(CONF_PASSCODE))
-        # The PlayStation Network integration stores the account ID as its unique ID.
-        accounts = [
-            entry.unique_id
-            for entry in self.hass.config_entries.async_entries("playstation_network")
-            if entry.unique_id and entry.unique_id.isdigit()
-        ]
+        # Known when the PlayStation Network account was linked in the previous step.
         schema = vol.Schema(
             {
                 vol.Required(
                     CONF_ACCOUNT_ID,
-                    description={"suggested_value": accounts[0] if accounts else None},
+                    description={"suggested_value": self._data.get(CONF_ACCOUNT_ID)},
                 ): str,
                 vol.Required(CONF_PIN): str,
                 vol.Optional(CONF_PASSCODE): PASSWORD,
@@ -254,10 +250,69 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
-        if entry.data[CONF_KIND] != ConsoleKind.PS5:
-            return self.async_abort(reason="reconfigure_unsupported")
         self._data = dict(entry.data)
-        return await self.async_step_ps5_pairing()
+        if entry.data[CONF_KIND] == ConsoleKind.PS5:
+            return self.async_show_menu(step_id="reconfigure", menu_options=["psn", "ps5_pairing"])
+        if PSN_PLATFORMS.get(profile_key(self._data)):
+            return await self.async_step_psn()
+        return self.async_abort(reason="reconfigure_unsupported")
+
+    # --- PlayStation Network (PS5, PS3, PS4) ----------------------------------
+
+    async def _validate_npsso(self, npsso: str) -> tuple[dict[str, str], dict[str, str]]:
+        """Data to store for a NPSSO token, and form errors."""
+        client = PsnClient(async_get_clientsession(self.hass), npsso)
+        try:
+            status = await client.async_get_status()
+        except PsnAuthError:
+            return {}, {"base": "invalid_npsso"}
+        except PsnError:
+            return {}, {"base": "psn_unavailable"}
+        return {CONF_NPSSO: npsso, CONF_ACCOUNT_ID: status.account_id}, {}
+
+    async def async_step_psn(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Optional PlayStation Network account: game, artwork, trophies, PS Plus."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            psn: dict[str, Any] = {CONF_NPSSO: None}
+            if npsso := (user_input.get(CONF_NPSSO) or "").strip():
+                psn, errors = await self._validate_npsso(npsso)
+            if not errors:
+                self._data.update(psn)
+                if self.source == SOURCE_RECONFIGURE:
+                    return self.async_update_reload_and_abort(
+                        self._get_reconfigure_entry(), data_updates=psn
+                    )
+                if self._data[CONF_KIND] == ConsoleKind.PS5:
+                    return await self.async_step_ps5_pairing()
+                return self._create()
+        return self.async_show_form(
+            step_id="psn",
+            data_schema=vol.Schema({vol.Optional(CONF_NPSSO): PASSWORD}),
+            description_placeholders={"npsso_url": NPSSO_URL},
+            errors=errors,
+        )
+
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """The NPSSO token expired (about every two months)."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            psn, errors = await self._validate_npsso(user_input[CONF_NPSSO].strip())
+            if not errors:
+                return self.async_update_reload_and_abort(
+                    self._get_reauth_entry(), data_updates=psn
+                )
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required(CONF_NPSSO): PASSWORD}),
+            description_placeholders={"npsso_url": NPSSO_URL},
+            errors=errors,
+        )
 
     # --- PlayStation 3 ------------------------------------------------------
 
@@ -280,7 +335,7 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_PORT: port,
                     CONF_NAME: user_input.get(CONF_NAME) or "PlayStation 3",
                 }
-                return self._create()
+                return await self.async_step_psn()
         schema = vol.Schema(
             {
                 vol.Required(CONF_HOST): str,
@@ -367,6 +422,8 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_ON_THRESHOLD: user_input.get(CONF_ON_THRESHOLD, 5),
                 CONF_NAME: user_input.get(CONF_NAME) or default_name,
             }
+            if user_input[CONF_PRESET] == LinkedPreset.PS4:
+                return await self.async_step_psn()
             return self._create()
         schema = vol.Schema(
             {
@@ -401,9 +458,6 @@ class GamingHubOptionsFlow(OptionsFlow):
         fields: dict[Any, Any] = {
             vol.Optional(CONF_POWER_ENTITY): EntitySelector(
                 EntitySelectorConfig(domain=Platform.SENSOR, device_class="power")
-            ),
-            vol.Optional(CONF_NOW_PLAYING_ENTITY): EntitySelector(
-                EntitySelectorConfig(domain=Platform.MEDIA_PLAYER)
             ),
             vol.Optional(CONF_TURN_ON_ENTITY): EntitySelector(
                 EntitySelectorConfig(domain=ACTION_DOMAINS)

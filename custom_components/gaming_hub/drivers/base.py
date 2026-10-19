@@ -27,8 +27,10 @@ class ConsoleDriver:
     # Keys of ``ConsoleSnapshot.attributes`` exposed as sensors / binary sensors.
     sensors: tuple[str, ...] = ()
     binary_sensors: tuple[str, ...] = ()
-    can_restart = False
+    # Buttons offered by the console: "restart", "quit_game".
+    buttons: tuple[str, ...] = ()
     can_notify = False
+    has_screen = False  # live picture (camera entity)
     configuration_url: str | None = None  # console web page, shown on the device
 
     def __init__(self, hass: HomeAssistant, entry: GamingHubConfigEntry) -> None:
@@ -60,6 +62,9 @@ class ConsoleDriver:
 
     async def async_restart(self) -> None:
         raise unsupported("restart")
+
+    async def async_quit_game(self) -> None:
+        raise unsupported("quit_game")
 
     async def async_notify(self, message: str, title: str | None = None) -> None:
         raise unsupported("notify")

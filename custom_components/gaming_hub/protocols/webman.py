@@ -26,8 +26,47 @@ _PLAY = re.compile(
     r"title=\"Play\">[^<]*</label>\s*(?:[^:<\d]*:\s*)?(?:(\d+)d\s*)?(\d+):(\d{2}):(\d{2})"
 )
 _FIRMWARE = re.compile(r"href=\"/setup\.ps3\">\s*(?:NAND|NOR)?\s*([^<]*?)\s*<br>")
-_MAC = re.compile(r"MAC Addr\s*:\s*([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})")
+_MAC = re.compile(
+    r"MAC Addr\s*:\s*([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})(?:\s*-\s*([\d.]+)\s*([A-Za-z]+)?)?"
+)
 _VERSION_SUFFIX = re.compile(r"\s+\d{2}\.\d{2}$")
+_MEM = re.compile(r"MEM:\s*([\d,.' ]+?)\s*KB")
+_HDD = re.compile(r"HDD:\s*([\d,.' ]+?)\.(\d)\s*(GB|MB)")
+_TEMPS_LINK = re.compile(r"cpursx\.ps3\?up\">(.*?)</a>", re.DOTALL)
+_FAN_TARGET = re.compile(r"MAX:\s*(\d+)")
+_DURATION = r"(?:(\d+)d\s*)?(\d+):(\d{2}):(\d{2})"
+_STARTUP = re.compile(r"Startup:\s*" + _DURATION)
+_RUNTIME = re.compile(r"Runtime:\s*" + _DURATION)
+_POWER_ON = re.compile(r"([\d,.']+)\s*ON\b")
+
+
+def _seconds(match: re.Match[str] | None) -> int | None:
+    if match is None:
+        return None
+    days, hours, minutes, seconds = match.groups()
+    return int(days or 0) * 86400 + int(hours) * 3600 + int(minutes) * 60 + int(seconds)
+
+
+def _digits(value: str) -> int:
+    return int(re.sub(r"\D", "", value) or 0)
+
+
+def _fan_mode(page: str) -> tuple[str | None, int | None]:
+    """Fan policy shown next to the CPU temperature, and the target of dynamic mode."""
+    if (link := _TEMPS_LINK.search(page)) is None:
+        return None, None
+    text = link.group(1)
+    if "PS2 Mode" in text:
+        return "ps2", None
+    if "SYSCON" in text:
+        return "syscon", None
+    if "(AUTO)" in text:
+        return "auto", None
+    if target := _FAN_TARGET.search(text):
+        return "dynamic", int(target.group(1))
+    if "[FAN:" in text:
+        return "manual", None
+    return None, None
 
 
 class WebmanError(Exception):
@@ -48,6 +87,15 @@ class WebmanStatus:
     play_time: int | None = None
     firmware: str | None = None
     mac: str | None = None
+    ip: str | None = None
+    network: str | None = None  # LAN or WLAN
+    memory_free: float | None = None  # MB
+    hdd_free: float | None = None  # GB
+    fan_mode: str | None = None  # syscon, auto, dynamic, manual, ps2
+    fan_target: int | None = None  # °C, dynamic mode
+    uptime: int | None = None  # seconds since power-on
+    runtime: int | None = None  # seconds of use over the console's life
+    power_on_count: int | None = None
 
 
 def parse_cpursx(page: str) -> WebmanStatus:
@@ -57,10 +105,7 @@ def parse_cpursx(page: str) -> WebmanStatus:
         match = pattern.search(page)
         return int(match.group(1)) if match else None
 
-    play_time = None
-    if match := _PLAY.search(page):
-        days, hours, minutes, seconds = match.groups()
-        play_time = int(days or 0) * 86400 + int(hours) * 3600 + int(minutes) * 60 + int(seconds)
+    play_time = _seconds(_PLAY.search(page))
 
     title = None
     if match := _TITLE.search(page):
@@ -73,6 +118,14 @@ def parse_cpursx(page: str) -> WebmanStatus:
     title_id = match.group(1) if (match := _TITLE_ID.search(page)) else None
     icon = _ICON.search(page)
     mac = _MAC.search(page)
+    hdd_free = None
+    if match := _HDD.search(page):
+        hdd_free = float(f"{_digits(match.group(1))}.{match.group(2)}")
+        if match.group(3) == "MB":
+            hdd_free = round(hdd_free / 1024, 2)
+    fan_mode, fan_target = _fan_mode(page)
+    runtime_at = page.find("Runtime:")
+    power_on = _POWER_ON.search(page, runtime_at) if runtime_at >= 0 else None
     return WebmanStatus(
         cpu_temperature=number(_CPU),
         rsx_temperature=number(_RSX),
@@ -84,6 +137,15 @@ def parse_cpursx(page: str) -> WebmanStatus:
         play_time=play_time,
         firmware=firmware,
         mac=mac.group(1).upper() if mac else None,
+        ip=mac.group(2) if mac else None,
+        network=mac.group(3) if mac else None,
+        memory_free=round(_digits(m.group(1)) / 1024, 1) if (m := _MEM.search(page)) else None,
+        hdd_free=hdd_free,
+        fan_mode=fan_mode,
+        fan_target=fan_target,
+        uptime=_seconds(_STARTUP.search(page)),
+        runtime=_seconds(_RUNTIME.search(page)),
+        power_on_count=_digits(power_on.group(1)) if power_on else None,
     )
 
 

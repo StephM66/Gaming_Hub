@@ -152,3 +152,47 @@ class SwitchAssistantState:
     def controllers(self) -> int | None:
         value = self._number("controller_count")
         return None if value is None else int(value)
+
+    @property
+    def battery_health(self) -> float | None:
+        return self._number("battery_health")
+
+    @property
+    def battery_voltage(self) -> float | None:
+        return self._number("battery_voltage")
+
+    @property
+    def charger(self) -> str | None:
+        return self._text("charger_type")
+
+    @property
+    def brightness(self) -> float | None:
+        return self._number("brightness")
+
+    @property
+    def screen_on(self) -> bool | None:
+        value = self.values.get("backlight")
+        return None if value is None else value == "ON"
+
+    @property
+    def volume(self) -> float | None:
+        return self._number("volume")
+
+    @property
+    def audio_output(self) -> str | None:
+        return self._text("audio_target")
+
+    @property
+    def players(self) -> dict[str, str]:
+        """Controller type per player slot (``player_1`` → ``joycon_pair``…)."""
+        return {
+            f"player_{slot}": value
+            for slot in range(1, 9)
+            if (value := self._text(f"player_{slot}_controller"))
+        }
+
+    @property
+    def stream_url(self) -> str | None:
+        """RTSP stream of the screen (available while a game runs)."""
+        value = self._text("screen_rtsp_url")
+        return value if value and value.startswith("rtsp://") else None
