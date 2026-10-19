@@ -80,4 +80,4 @@ curl -s http://IP_PS3/cpursx.ps3 -o cpursx_jeu.html      # en jeu
 | 2 | Rallumer après la limite | message, puis extinction au bout d'une minute |
 | 3 | Plage 09:00–20:00, essai à 20:05 | blocage avec la raison `schedule` |
 | 4 | Redémarrage de Home Assistant en cours de journée | temps de jeu conservé |
-| 5 | Prise connectée associée | « Puissance » = valeur de la prise, attribut `source: measured` |
+| 5 | Prise connectée associée dans les options | « Puissance » = valeur de la prise, « Énergie » augmente ; sans prise, ni l'un ni l'autre |
