@@ -15,7 +15,9 @@ from homeassistant.components.sensor import (
 from homeassistant.const import (
     PERCENTAGE,
     EntityCategory,
+    UnitOfElectricPotential,
     UnitOfEnergy,
+    UnitOfInformation,
     UnitOfPower,
     UnitOfTemperature,
     UnitOfTime,
@@ -145,6 +147,138 @@ DRIVER_SENSORS: dict[str, HubSensorDescription] = {
             key="controllers",
             state_class=SensorStateClass.MEASUREMENT,
             value_fn=_attribute("controllers"),
+            attributes_fn=lambda data: data.snapshot.attributes.get("players") or {},
+        ),
+        # PlayStation 3 (webMAN MOD)
+        HubSensorDescription(
+            key="fan_mode",
+            device_class=SensorDeviceClass.ENUM,
+            options=["syscon", "auto", "dynamic", "manual", "ps2"],
+            value_fn=_attribute("fan_mode"),
+        ),
+        HubSensorDescription(
+            key="fan_target",
+            device_class=SensorDeviceClass.TEMPERATURE,
+            native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=_attribute("fan_target"),
+        ),
+        HubSensorDescription(
+            key="session_time",
+            device_class=SensorDeviceClass.DURATION,
+            native_unit_of_measurement=UnitOfTime.MINUTES,
+            suggested_display_precision=0,
+            value_fn=_attribute("session_time"),
+        ),
+        HubSensorDescription(
+            key="memory_free",
+            device_class=SensorDeviceClass.DATA_SIZE,
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement=UnitOfInformation.MEGABYTES,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=_attribute("memory_free"),
+        ),
+        HubSensorDescription(
+            key="hdd_free",
+            device_class=SensorDeviceClass.DATA_SIZE,
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement=UnitOfInformation.GIGABYTES,
+            suggested_display_precision=1,
+            value_fn=_attribute("hdd_free"),
+        ),
+        HubSensorDescription(
+            key="started_at",
+            device_class=SensorDeviceClass.TIMESTAMP,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=_attribute("started_at"),
+        ),
+        HubSensorDescription(
+            key="network",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            value_fn=_attribute("network"),
+        ),
+        HubSensorDescription(
+            key="ip_address",
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            value_fn=_attribute("ip_address"),
+        ),
+        HubSensorDescription(
+            key="runtime",
+            device_class=SensorDeviceClass.DURATION,
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            native_unit_of_measurement=UnitOfTime.HOURS,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            value_fn=_attribute("runtime"),
+        ),
+        HubSensorDescription(
+            key="power_on_count",
+            state_class=SensorStateClass.TOTAL_INCREASING,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            value_fn=_attribute("power_on_count"),
+        ),
+        # Nintendo Switch (Switch Assistant)
+        HubSensorDescription(
+            key="battery_health",
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement=PERCENTAGE,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=_attribute("battery_health"),
+        ),
+        HubSensorDescription(
+            key="battery_voltage",
+            device_class=SensorDeviceClass.VOLTAGE,
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement=UnitOfElectricPotential.MILLIVOLT,
+            entity_category=EntityCategory.DIAGNOSTIC,
+            entity_registry_enabled_default=False,
+            value_fn=_attribute("battery_voltage"),
+        ),
+        HubSensorDescription(
+            key="charger",
+            device_class=SensorDeviceClass.ENUM,
+            options=["unconnected", "enough_power", "low_power", "not_supported", "unknown"],
+            entity_category=EntityCategory.DIAGNOSTIC,
+            value_fn=_attribute("charger"),
+        ),
+        HubSensorDescription(
+            key="brightness",
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement=PERCENTAGE,
+            value_fn=_attribute("brightness"),
+        ),
+        HubSensorDescription(
+            key="volume",
+            state_class=SensorStateClass.MEASUREMENT,
+            native_unit_of_measurement=PERCENTAGE,
+            value_fn=_attribute("volume"),
+        ),
+        HubSensorDescription(
+            key="audio_output",
+            device_class=SensorDeviceClass.ENUM,
+            options=["speaker", "headphone", "tv", "usb", "bluetooth", "unknown"],
+            value_fn=_attribute("audio_output"),
+        ),
+        # PlayStation Network account
+        HubSensorDescription(
+            key="psn_status",
+            value_fn=_attribute("psn_status"),
+            attributes_fn=lambda data: {
+                "online_id": data.snapshot.attributes.get("psn_online_id"),
+                "avatar": data.snapshot.attributes.get("psn_avatar"),
+            },
+        ),
+        HubSensorDescription(
+            key="trophy_level",
+            state_class=SensorStateClass.MEASUREMENT,
+            value_fn=_attribute("trophy_level"),
+            attributes_fn=lambda data: {
+                "progress": data.snapshot.attributes.get("trophy_progress"),
+                **(data.snapshot.attributes.get("trophies") or {}),
+            },
         ),
     )
 }
@@ -157,7 +291,7 @@ async def async_setup_entry(
 ) -> None:
     coordinator = entry.runtime_data
     descriptions = [d for d in HUB_SENSORS if d.exists_fn(coordinator)]
-    descriptions += [DRIVER_SENSORS[key] for key in coordinator.driver.sensors]
+    descriptions += [DRIVER_SENSORS[key] for key in coordinator.sensor_keys]
     async_add_entities(HubSensor(coordinator, description) for description in descriptions)
 
 
@@ -172,7 +306,9 @@ class HubSensor(GamingHubEntity, SensorEntity):
 
     @property
     def native_value(self) -> Any:
-        return self.entity_description.value_fn(self.coordinator.data)
+        value = self.entity_description.value_fn(self.coordinator.data)
+        # States are limited to 255 characters; text comes from the consoles.
+        return value[:255] if isinstance(value, str) else value
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:

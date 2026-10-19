@@ -1,4 +1,4 @@
-"""Playing (every console) and charging (Switch)."""
+"""Playing (every console), charging and screen (Switch), PlayStation Plus."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ PARALLEL_UPDATES = 0
 DEVICE_CLASSES = {
     "playing": BinarySensorDeviceClass.RUNNING,
     "charging": BinarySensorDeviceClass.BATTERY_CHARGING,
+    "screen_on": BinarySensorDeviceClass.LIGHT,
 }
 
 
@@ -26,7 +27,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    keys = ["playing", *coordinator.driver.binary_sensors]
+    keys = ["playing", *coordinator.binary_sensor_keys]
     async_add_entities(HubBinarySensor(coordinator, key) for key in keys)
 
 

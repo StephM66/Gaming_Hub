@@ -29,6 +29,7 @@ import struct
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from .ddp import resolve_ipv4
 from .rp_keys import (
     PS5_AERO_KEYS,
     PS5_AUTH_NONCE_KEYS,
@@ -43,6 +44,8 @@ CLIENT_TYPE = "dabfa2ec873de5839bee8d3f4c0239c4282c07c25c6077a2931afcf0adc0d34f"
 _HMAC_KEY = bytes.fromhex("464687b349ca8ce859c5270f5d7a69d6")
 _NONCE_LENGTH = 16
 _PADDING_LENGTH = 480
+# Answers and packets of the control channel are tiny; refuse anything big.
+_MAX_BODY = 64 * 1024
 _DID = bytes([0x00, 0x18, 0x00, 0x00, 0x00, 0x07, 0x00, 0x40, 0x00, 0x80]) + bytes(22)
 _OS_TYPE = b"Win10.0.0"
 
@@ -226,20 +229,25 @@ class _Response:
 
 
 async def _read_response(reader: asyncio.StreamReader, *, read_body: bool) -> _Response:
-    head = await reader.readuntil(b"\r\n\r\n")
+    try:
+        head = await reader.readuntil(b"\r\n\r\n")
+    except asyncio.LimitOverrunError as err:
+        raise RemotePlayError("protocol", "headers too large") from err
     lines = head.decode("latin-1").split("\r\n")
     parts = lines[0].split(" ", 2)
     if len(parts) < 2 or not parts[1].isdigit():
-        raise RemotePlayError("protocol", f"unexpected status line {lines[0]!r}")
+        raise RemotePlayError("protocol", f"unexpected status line {lines[0][:80]!r}")
     headers: dict[str, str] = {}
     for line in lines[1:]:
         key, sep, value = line.partition(":")
         if sep:
             headers[key.strip().lower()] = value.strip()
+    length = headers.get("content-length", "0").strip() or "0"
+    if not length.isdigit() or int(length) > _MAX_BODY:
+        raise RemotePlayError("protocol", f"unexpected content length {length[:20]!r}")
     body = b""
-    length = int(headers.get("content-length", "0") or 0)
-    if read_body and length:
-        body = await reader.readexactly(length)
+    if read_body and int(length):
+        body = await reader.readexactly(int(length))
     return _Response(int(parts[1]), headers, body)
 
 
@@ -284,11 +292,12 @@ async def _close(writer: asyncio.StreamWriter) -> None:
 
 
 class _SearchProtocol(asyncio.DatagramProtocol):
-    def __init__(self) -> None:
+    def __init__(self, console: str) -> None:
         self.answered = asyncio.Event()
+        self._console = console
 
     def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
-        if data.startswith(b"RES3"):
+        if addr[0] == self._console and data.startswith(b"RES3"):
             self.answered.set()
 
 
@@ -296,16 +305,20 @@ async def _announce_registration(host: str, port: int, local_port: int, timeout:
     """Send ``SRC3`` and wait for ``RES3``; the console rejects pairing otherwise."""
     loop = asyncio.get_running_loop()
     try:
+        console = await resolve_ipv4(host)
+    except OSError as err:
+        raise RemotePlayError("cannot_connect", str(err)) from err
+    try:
         transport, protocol = await loop.create_datagram_endpoint(
-            _SearchProtocol, local_addr=("0.0.0.0", local_port)
+            lambda: _SearchProtocol(console), local_addr=("0.0.0.0", local_port)
         )
     except OSError:
         transport, protocol = await loop.create_datagram_endpoint(
-            _SearchProtocol, local_addr=("0.0.0.0", 0)
+            lambda: _SearchProtocol(console), local_addr=("0.0.0.0", 0)
         )
     try:
         for _ in range(3):
-            transport.sendto(b"SRC3", (host, port))
+            transport.sendto(b"SRC3", (console, port))
             try:
                 await asyncio.wait_for(protocol.answered.wait(), timeout / 3)
             except TimeoutError:
@@ -415,6 +428,8 @@ class _ControlChannel:
 
     async def receive(self) -> tuple[int, bytes]:
         length, packet_type, _ = struct.unpack(">IHH", await self._reader.readexactly(8))
+        if length > _MAX_BODY:
+            raise RemotePlayError("protocol", f"packet of {length} bytes")
         payload = await self._reader.readexactly(length) if length else b""
         return packet_type, self._codec.decrypt(payload) if payload else b""
 

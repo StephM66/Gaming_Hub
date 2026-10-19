@@ -21,10 +21,21 @@ from .base import ConsoleDriver
 
 
 class SwitchDriver(ConsoleDriver):
-    sensors = ("battery", "battery_temperature", "controllers")
-    binary_sensors = ("charging",)
-    can_restart = True
+    sensors = (
+        "battery",
+        "battery_health",
+        "battery_temperature",
+        "battery_voltage",
+        "charger",
+        "brightness",
+        "volume",
+        "audio_output",
+        "controllers",
+    )
+    binary_sensors = ("charging", "screen_on")
+    buttons = ("restart",)
     can_notify = True
+    has_screen = True
 
     def __init__(self, hass: HomeAssistant, entry) -> None:
         super().__init__(hass, entry)
@@ -70,16 +81,29 @@ class SwitchDriver(ConsoleDriver):
         state = self.state
         attributes = {
             "battery": state.battery,
+            "battery_health": state.battery_health,
             "battery_temperature": state.battery_temperature,
-            "controllers": state.controllers,
+            "battery_voltage": state.battery_voltage,
+            "charger": state.charger,
             "charging": state.charging,
+            "controllers": state.controllers,
+            "players": state.players,
         }
         if not state.is_online(time.monotonic()):
             return ConsoleSnapshot(PowerState.OFF, attributes=attributes)
+        attributes |= {
+            "brightness": state.brightness,
+            "screen_on": state.screen_on,
+            "volume": state.volume,
+            "audio_output": state.audio_output,
+            "stream_url": state.stream_url,
+        }
         title_id = state.title_id
         image = None
-        if title_id and self._template:
-            image = self._template.format(title_id=title_id, title_id_lower=title_id.lower())
+        if title_id and self._template.startswith(("https://", "http://")):
+            image = self._template.replace("{title_id}", title_id).replace(
+                "{title_id_lower}", title_id.lower()
+            )
         return ConsoleSnapshot(
             PowerState.ON,
             in_game=state.game_running,
