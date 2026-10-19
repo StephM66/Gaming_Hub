@@ -130,12 +130,25 @@ class _Collector(asyncio.DatagramProtocol):
             self.done.set()
 
 
+def local_address(target: str) -> str:
+    """Address of the interface that reaches ``target`` (connecting a UDP socket sends nothing)."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        probe.connect((target, PS5_DDP_PORT))
+        return probe.getsockname()[0]
+
+
 async def _open(console: str | None) -> tuple[asyncio.DatagramTransport, _Collector]:
     loop = asyncio.get_running_loop()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    sock.bind(("0.0.0.0", 0))
-    sock.setblocking(False)
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        # Listen for the answer on the interface that reaches the console only.
+        sock.bind((local_address(console or BROADCAST), 0))
+        sock.setblocking(False)
+    except OSError:
+        sock.close()
+        raise
     transport, protocol = await loop.create_datagram_endpoint(
         lambda: _Collector(console), sock=sock
     )
