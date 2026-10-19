@@ -4,7 +4,8 @@ name: release
 on:
   push:
     branches: [main]
-    paths: [custom_components/gaming_hub/manifest.json]
+    # The workflow file too: its first merge publishes the current version (once).
+    paths: [custom_components/gaming_hub/manifest.json, .github/workflows/release.yml]
   workflow_dispatch:
 
 permissions:

@@ -4,9 +4,6 @@
   "after_dependencies": [
     "mqtt"
   ],
-  "categories": [
-    "media_entertainment.gaming"
-  ],
   "codeowners": [
     "@StephM66"
   ],
