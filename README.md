@@ -30,6 +30,22 @@ Ce qui reste est imposé par les consoles, pas par le hub :
 > serveurs simulés et, pour la PS5, octet par octet contre playactor (le moteur de PS5-MQTT).
 > Aucun essai n'a encore été fait sur une vraie console : voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
 
+## Avertissement
+
+**Gaming Hub est fourni en l'état, sans aucune garantie** : ni de fonctionnement, ni de mise à
+jour, ni de maintenance, ni de support. C'est un projet personnel, publié pour qui veut s'en
+servir ou le reprendre (licence CC0).
+
+- Il s'appuie sur des interfaces non officielles (PlayStation Network, Lecture à distance,
+  webMAN MOD, Switch Assistant) qui peuvent changer et casser une fonction sans préavis.
+- Il pilote des consoles et utilise votre compte PlayStation Network : à utiliser à vos risques.
+- Le contrôle parental est une aide, pas une barrière : un enfant peut le contourner (console
+  hors réseau, jeu hors ligne…). Le compléter par les contrôles parentaux officiels des consoles.
+- Projet indépendant, sans lien avec Sony, Nintendo ou Microsoft. Les marques citées
+  appartiennent à leurs propriétaires.
+
+Sécurité et signalement des failles : [`SECURITY.md`](SECURITY.md).
+
 ## Ce que fait chaque console
 
 | | PlayStation 5 | PlayStation 3 | Nintendo Switch | Xbox et autres |

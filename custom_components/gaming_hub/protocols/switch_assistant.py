@@ -19,12 +19,36 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 import re
+from urllib.parse import urlsplit
 
 STATE_ROOT = "switch_ha"
 DEFAULT_DISCOVERY_PREFIX = "homeassistant"
 HEARTBEAT_TIMEOUT = 45.0  # three missed heartbeats
 _UNSAFE = re.compile(r"[^A-Za-z0-9]")
 _NONE = {"", "none", "unknown"}
+_TITLE_ID = re.compile(r"[0-9A-F]{16}")
+# Only what the sysmodule publishes is kept, each value at most this long.
+SENSORS = frozenset(
+    {
+        "battery",
+        "charging",
+        "charger_type",
+        "battery_voltage",
+        "battery_temperature",
+        "battery_health",
+        "brightness",
+        "backlight",
+        "volume",
+        "audio_target",
+        "game_running",
+        "current_game",
+        "current_game_id",
+        "controller_count",
+        "screen_rtsp_url",
+        *(f"player_{slot}_controller" for slot in range(1, 9)),
+    }
+)
+MAX_VALUE = 255
 
 
 def sanitize_client_id(client_id: str) -> str:
@@ -75,8 +99,9 @@ class SwitchAssistantState:
         if not topic.startswith(prefix):
             return False
         sensor = topic[len(prefix) :]
-        if sensor.startswith("notify/"):
+        if sensor not in SENSORS:
             return False
+        payload = payload[:MAX_VALUE]
         changed = self.values.get(sensor) != payload
         self.values[sensor] = payload
         if not retained:
@@ -132,8 +157,9 @@ class SwitchAssistantState:
 
     @property
     def title_id(self) -> str | None:
-        value = self._text("current_game_id") if self.game_running else None
-        return value.upper() if value else None
+        """Application ID, only when it has the expected 16 hexadecimal digits."""
+        value = (self._text("current_game_id") or "").upper() if self.game_running else ""
+        return value if _TITLE_ID.fullmatch(value) else None
 
     @property
     def battery(self) -> float | None:
@@ -195,4 +221,11 @@ class SwitchAssistantState:
     def stream_url(self) -> str | None:
         """RTSP stream of the screen (available while a game runs)."""
         value = self._text("screen_rtsp_url")
-        return value if value and value.startswith("rtsp://") else None
+        if not value or any(char.isspace() or ord(char) < 32 for char in value):
+            return None
+        try:
+            url = urlsplit(value)
+        except ValueError:
+            return None
+        # Handed to the stream player: nothing but a plain RTSP address.
+        return value if url.scheme == "rtsp" and url.hostname and not url.username else None

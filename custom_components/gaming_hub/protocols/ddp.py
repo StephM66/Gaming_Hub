@@ -87,10 +87,10 @@ def parse_response(data: bytes, address: str) -> DdpResponse | None:
     if len(parts) < 2 or not parts[1].isdigit():
         return None
     fields: dict[str, str] = {}
-    for line in lines[1:]:
+    for line in lines[1:33]:  # a real answer has about ten fields
         key, sep, value = line.partition(":")
         if sep and value.strip():
-            fields[key.strip().lower()] = value.strip()
+            fields[key.strip().lower()[:64]] = value.strip()[:255]
     return DdpResponse(address=address, status_code=int(parts[1]), fields=fields)
 
 
@@ -104,27 +104,41 @@ def regist_key_to_credential(regist_key: str) -> str:
     return str(int(inner, 16))
 
 
+async def resolve_ipv4(host: str) -> str:
+    """IPv4 address of a host name (or the address itself)."""
+    infos = await asyncio.get_running_loop().getaddrinfo(
+        host, None, family=socket.AF_INET, type=socket.SOCK_DGRAM
+    )
+    return infos[0][4][0]
+
+
 class _Collector(asyncio.DatagramProtocol):
-    def __init__(self, single: bool) -> None:
+    def __init__(self, console: str | None) -> None:
         self.responses: dict[str, DdpResponse] = {}
         self.done = asyncio.Event()
-        self._single = single
+        self._console = console
 
     def datagram_received(self, data: bytes, addr: tuple[str, int]) -> None:
+        # A query to one console only trusts that console's address.
+        if self._console is not None and addr[0] != self._console:
+            return
         if (response := parse_response(data, addr[0])) is None:
             return
-        self.responses[response.host_id or addr[0]] = response
-        if self._single:
+        if len(self.responses) < 64:
+            self.responses[response.host_id or addr[0]] = response
+        if self._console is not None:
             self.done.set()
 
 
-async def _open(single: bool) -> tuple[asyncio.DatagramTransport, _Collector]:
+async def _open(console: str | None) -> tuple[asyncio.DatagramTransport, _Collector]:
     loop = asyncio.get_running_loop()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.bind(("0.0.0.0", 0))
     sock.setblocking(False)
-    transport, protocol = await loop.create_datagram_endpoint(lambda: _Collector(single), sock=sock)
+    transport, protocol = await loop.create_datagram_endpoint(
+        lambda: _Collector(console), sock=sock
+    )
     return transport, protocol
 
 
@@ -140,11 +154,12 @@ async def async_search(
     With a host, returns as soon as it answers; a broadcast collects every
     answer received before the timeout.
     """
-    transport, protocol = await _open(single=host is not None)
+    console = await resolve_ipv4(host) if host is not None else None
+    transport, protocol = await _open(console)
     message = build_message("SRCH")
     try:
         for _ in range(max(attempts, 1)):
-            transport.sendto(message, (host or BROADCAST, port))
+            transport.sendto(message, (console or BROADCAST, port))
             try:
                 await asyncio.wait_for(protocol.done.wait(), timeout / max(attempts, 1))
             except TimeoutError:
@@ -167,12 +182,13 @@ async def async_wake(
     host: str, credential: str, *, port: int = PS5_DDP_PORT, repeat: int = 3
 ) -> None:
     """Send WAKEUP a few times (UDP gives no acknowledgement)."""
-    transport, _ = await _open(single=True)
+    console = await resolve_ipv4(host)
+    transport, _ = await _open(console)
     message = build_wake_message(credential)
     try:
         for index in range(max(repeat, 1)):
             if index:
                 await asyncio.sleep(0.2)
-            transport.sendto(message, (host, port))
+            transport.sendto(message, (console, port))
     finally:
         transport.close()

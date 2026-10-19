@@ -306,7 +306,9 @@ class HubSensor(GamingHubEntity, SensorEntity):
 
     @property
     def native_value(self) -> Any:
-        return self.entity_description.value_fn(self.coordinator.data)
+        value = self.entity_description.value_fn(self.coordinator.data)
+        # States are limited to 255 characters; text comes from the consoles.
+        return value[:255] if isinstance(value, str) else value
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
