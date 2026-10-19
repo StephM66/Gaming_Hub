@@ -2,7 +2,9 @@
   "domain": "gaming_hub",
   "name": "Gaming Hub",
   "after_dependencies": [
-    "mqtt"
+    "energy",
+    "mqtt",
+    "recorder"
   ],
   "codeowners": [
     "@StephM66"

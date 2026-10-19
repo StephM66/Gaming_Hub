@@ -141,6 +141,18 @@
           "block_entity": "Activated instead of turning the console off when play time is over, e.g. the Nintendo Switch Parental Controls suspend switch.",
           "image_template": "Leave empty to disable artwork."
         }
+      },
+      "energy": {
+        "title": "Existing consumption",
+        "description": "The console now has its own Power and Energy sensors. If the plug, or a helper built on it, already has an energy meter, pick it here: its history moves to the console's Energy sensor, which also replaces it on the Energy dashboard, so nothing is counted twice. Leave empty to take nothing over.",
+        "data": {
+          "energy_source": "Energy meter to take over",
+          "hide_sources": "Hide the plug's sensors and the meter taken over"
+        },
+        "data_description": {
+          "energy_source": "The history is moved, not copied: the meter taken over goes on alone, without its past.",
+          "hide_sources": "They show again when the plug is unlinked or the console deleted."
+        }
       }
     }
   },

@@ -16,6 +16,7 @@ from homeassistant.const import Platform
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
@@ -36,6 +37,8 @@ from .const import (
     CONF_BLOCK_ENTITY,
     CONF_CLIENT_ID,
     CONF_DISCOVERY_PREFIX,
+    CONF_ENERGY_SOURCE,
+    CONF_HIDE_SOURCES,
     CONF_HOST,
     CONF_HOST_ID,
     CONF_IMAGE_TEMPLATE,
@@ -59,6 +62,7 @@ from .const import (
     ConsoleKind,
     LinkedPreset,
 )
+from .consumption import plug_energy_sensor
 from .coordinator import PSN_PLATFORMS, profile_key
 from .protocols import ddp, remoteplay
 from .protocols import switch_assistant as sa
@@ -443,12 +447,18 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
 class GamingHubOptionsFlow(OptionsFlow):
     """Links to other entities: power sensor, commands, parental block."""
 
+    def __init__(self) -> None:
+        self._options: dict[str, Any] = {}
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self.config_entry
         if user_input is not None:
             if entry.data[CONF_KIND] == ConsoleKind.SWITCH:
                 # An empty template disables artwork instead of restoring the default.
                 user_input.setdefault(CONF_IMAGE_TEMPLATE, "")
+            self._options = user_input
+            if user_input.get(CONF_POWER_ENTITY):
+                return await self.async_step_energy()
             return self.async_create_entry(data=user_input)
         fields: dict[Any, Any] = {
             vol.Optional(CONF_POWER_ENTITY): EntitySelector(
@@ -470,4 +480,28 @@ class GamingHubOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(vol.Schema(fields), suggested),
+        )
+
+    async def async_step_energy(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """With a plug: the energy meter the console replaces, so nothing is counted twice."""
+        if user_input is not None:
+            return self.async_create_entry(data={**self._options, **user_input})
+        options = self.config_entry.options
+        power = self._options[CONF_POWER_ENTITY]
+        suggested = {
+            CONF_ENERGY_SOURCE: options.get(CONF_ENERGY_SOURCE)
+            if options.get(CONF_POWER_ENTITY) == power
+            else plug_energy_sensor(self.hass, power),
+            CONF_HIDE_SOURCES: options.get(CONF_HIDE_SOURCES, True),
+        }
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_ENERGY_SOURCE): EntitySelector(
+                    EntitySelectorConfig(domain=Platform.SENSOR, device_class="energy")
+                ),
+                vol.Required(CONF_HIDE_SOURCES): BooleanSelector(),
+            }
+        )
+        return self.async_show_form(
+            step_id="energy", data_schema=self.add_suggested_values_to_schema(schema, suggested)
         )

@@ -168,6 +168,7 @@ Le type ne sert qu'au fabricant et au modèle affichés.
 | Option | Usage |
 |---|---|
 | Capteur de puissance | Prise connectée en amont de la console : ajoute « Puissance » et « Énergie ». |
+| Consommation existante | Compteur d'énergie de la prise ou d'une entrée à reprendre, capteurs à masquer (voir Consommation). |
 | Allumer avec / Éteindre avec | Script, scène, bouton ou interrupteur qui remplace la commande native. |
 | Blocage parental avec | Activé à la place de l'extinction quand le temps de jeu est écoulé. |
 | URL de la jaquette (Switch) | Modèle avec `{title_id}` ; vide pour désactiver. |
@@ -216,6 +217,19 @@ Facultative : il faut une prise connectée en amont de la console, à associer d
 « Énergie » (kWh, cumulée), que l'on peut ajouter au tableau de bord Énergie comme appareil
 individuel. Sans prise, ces deux capteurs n'existent pas : une estimation serait trop
 approximative (les modèles et les jeux varient beaucoup). Dissocier la prise les supprime.
+
+**Ne rien compter deux fois.** Si la prise, ou une entrée créée à partir d'elle (intégrale,
+compteur de consommation…), a déjà un compteur d'énergie, les options proposent juste après de
+le reprendre (celui de la prise est présélectionné) :
+
+- son historique à long terme passe sur « Énergie » de la console : les graphiques et le tableau
+  Énergie gardent le passé, et le compteur de la console continue depuis son total ;
+- dans le tableau Énergie, la console le remplace parmi les appareils individuels ;
+- les capteurs de la prise et le compteur repris sont masqués (facultatif). Ils réapparaissent
+  si la prise est dissociée ou la console supprimée.
+
+L'historique est déplacé, pas copié : le compteur repris continue seul, sans son passé. La
+reprise n'a lieu qu'une fois par console.
 
 ## Entités par console
 

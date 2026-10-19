@@ -141,6 +141,18 @@
           "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé, par exemple l'interrupteur de suspension de l'intégration Contrôle parental Nintendo Switch.",
           "image_template": "Laisser vide pour ne pas afficher de jaquette."
         }
+      },
+      "energy": {
+        "title": "Consommation existante",
+        "description": "La console a maintenant ses capteurs Puissance et Énergie. Si la prise, ou une entrée créée à partir d'elle, a déjà un compteur d'énergie, le désigner ici : son historique passe sur l'Énergie de la console, qui le remplace aussi dans le tableau Énergie, pour ne rien compter deux fois. Laisser vide pour ne rien reprendre.",
+        "data": {
+          "energy_source": "Compteur d'énergie à reprendre",
+          "hide_sources": "Masquer les capteurs de la prise et le compteur repris"
+        },
+        "data_description": {
+          "energy_source": "L'historique est déplacé, pas copié : le compteur repris continue seul, sans son passé.",
+          "hide_sources": "Ils réapparaissent si la prise est dissociée ou la console supprimée."
+        }
       }
     }
   },

@@ -52,6 +52,8 @@ CONF_POWER_ENTITY: Final = "power_entity"
 CONF_TURN_ON_ENTITY: Final = "turn_on_entity"
 CONF_TURN_OFF_ENTITY: Final = "turn_off_entity"
 CONF_BLOCK_ENTITY: Final = "block_entity"
+CONF_ENERGY_SOURCE: Final = "energy_source"
+CONF_HIDE_SOURCES: Final = "hide_sources"
 CONF_IMAGE_TEMPLATE: Final = "image_template"
 
 # ps5-mqtt keeps playactor credentials in the Home Assistant configuration folder.

@@ -111,6 +111,9 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self.psn_status: PsnStatus | None = None
         self.psn_platform = PSN_PLATFORMS.get(key)
         self._psn_next = 0.0
+        # Energy meter taken over and the plug's sensors hidden by the hub (consumption.py).
+        self.energy_taken_over: str | None = None
+        self.hidden_entities: list[str] = []
         self._psn_was_on = False
         self.psn_reauth = False
 
@@ -130,6 +133,9 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         stored = await self._store.async_load() or {}
         self.usage = UsageTracker.from_dict(stored.get("usage"))
         self.parental.settings = ParentalSettings.from_dict(stored.get("parental"))
+        consumption = stored.get("consumption") or {}
+        self.energy_taken_over = consumption.get("taken_over")
+        self.hidden_entities = list(consumption.get("hidden") or [])
         if npsso := self.config_entry.data.get(CONF_NPSSO):
             psn = stored.get("psn") or {}
             tokens = psn.get("tokens") if psn.get("npsso") == _npsso_hash(npsso) else None
@@ -152,7 +158,11 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         await self._store.async_save(self._stored())
 
     def _stored(self) -> dict[str, Any]:
-        data = {"usage": self.usage.as_dict(), "parental": self.parental.settings.as_dict()}
+        data = {
+            "usage": self.usage.as_dict(),
+            "parental": self.parental.settings.as_dict(),
+            "consumption": {"taken_over": self.energy_taken_over, "hidden": self.hidden_entities},
+        }
         if self.psn:
             npsso = self.config_entry.data[CONF_NPSSO]
             data["psn"] = {"npsso": _npsso_hash(npsso), "tokens": self.psn.tokens}
@@ -163,6 +173,9 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         if soon or self._next_save is None or now >= self._next_save:
             self._store.async_delay_save(self._stored, 1)
             self._next_save = now + SAVE_INTERVAL
+
+    def save_soon(self) -> None:
+        self._schedule_save(dt_util.now(), soon=True)
 
     # --- Refresh ------------------------------------------------------------
 

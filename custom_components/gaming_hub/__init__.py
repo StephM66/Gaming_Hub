@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
+from . import consumption
 from .coordinator import GamingHubConfigEntry, GamingHubCoordinator
 from .drivers import create_driver
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [
     Platform.BINARY_SENSOR,
@@ -37,6 +42,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) ->
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, _platforms(coordinator))
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+    try:
+        await consumption.async_apply(hass, entry)
+    except Exception:
+        # Taking over another meter is a convenience: it never stops the console.
+        _LOGGER.exception("Could not take over the energy meter of %s", entry.title)
     return True
 
 
@@ -45,6 +55,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) -
     if unloaded := await hass.config_entries.async_unload_platforms(entry, platforms):
         await entry.runtime_data.async_stop()
     return unloaded
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) -> None:
+    await consumption.async_restore(hass, entry)
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: GamingHubConfigEntry) -> None:
