@@ -25,6 +25,7 @@ STEAM_ID = "76561198000000000"
 async def test_summary_of_all_consoles(
     hass: HomeAssistant, mock_ddp, ps5_entry, freezer: FrozenDateTimeFactory
 ) -> None:
+    freezer.move_to("2026-10-21 12:00:00-07:00")  # not near midnight: play time is daily
     pc = MockConfigEntry(
         domain=DOMAIN,
         title="PC",

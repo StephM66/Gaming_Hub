@@ -342,6 +342,7 @@ async def test_removed_kind_asks_to_delete_the_console(hass: HomeAssistant) -> N
 async def test_measured_power_and_energy(
     hass: HomeAssistant, mock_ddp, ps5_entry, freezer: FrozenDateTimeFactory
 ) -> None:
+    freezer.move_to("2026-10-21 12:00:00-07:00")  # not near midnight: play time is daily
     hass.states.async_set("sensor.prise_ps5", "100")
     ps5_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(ps5_entry, options={"power_entity": "sensor.prise_ps5"})
@@ -367,6 +368,7 @@ async def test_measured_power_and_energy(
 async def test_parental_control_turns_console_off(
     hass: HomeAssistant, mock_ddp, ps5_entry, freezer: FrozenDateTimeFactory
 ) -> None:
+    freezer.move_to("2026-10-21 12:00:00-07:00")  # not near midnight: play time is daily
     events = async_capture_events(hass, EVENT_PARENTAL)
     await _setup(hass, ps5_entry)
     await hass.services.async_call(
@@ -448,6 +450,7 @@ async def test_parental_block_entity_and_schedule(
 async def test_usage_is_saved_while_running(
     hass: HomeAssistant, mock_ddp, ps5_entry, hass_storage, freezer: FrozenDateTimeFactory
 ) -> None:
+    freezer.move_to("2026-10-21 12:00:00-07:00")  # not near midnight: play time is daily
     await _setup(hass, ps5_entry)
     key = f"{DOMAIN}.{ps5_entry.entry_id}"
     await _tick(hass, freezer, 1)

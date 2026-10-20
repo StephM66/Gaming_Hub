@@ -110,6 +110,7 @@ async def test_in_game_standby_and_offline(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory
 ) -> None:
     """In game: on with the game; online without a game: standby; play time only in game."""
+    freezer.move_to("2026-10-21 12:00:00-07:00")  # not near midnight: play time is daily
     online = SteamStatus(STEAM_ID, "Steph", "online")
     with patch(STATUS, AsyncMock(return_value=online)) as status:
         entry = _entry()
