@@ -294,50 +294,55 @@ async def test_switch_over_mqtt(
     ]
 
 
-async def test_linked_xbox(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
-    hass.states.async_set("media_player.xbox", "off", {"supported_features": 384})
+async def test_ps4_through_the_psn_account(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """No local protocol: on while the account is online on the PS4, with its game."""
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="Xbox",
+        title="PS4",
         data={
-            "kind": "linked",
-            "preset": "xbox",
-            "source_entity": "media_player.xbox",
-            "name": "Xbox",
+            "kind": "playstation",
+            "preset": "ps4",
+            "name": "PS4",
+            "npsso": "x",
+            "account_id": "1",
         },
     )
-    await _setup(hass, entry)
-    hub = "media_player.xbox_2"
-    assert hass.states.get(hub).state == STATE_OFF
-    device = hass.data["device_registry"].async_get_device({(DOMAIN, entry.entry_id)})
-    assert (device.manufacturer, device.model) == ("Microsoft", "Xbox")
+    offline = PsnStatus(account_id="1", online_id="Steph66", online_status="offline")
+    with patch(PSN_STATUS, AsyncMock(return_value=offline)) as psn:
+        await _setup(hass, entry)
+        assert hass.states.get("media_player.ps4").state == STATE_OFF
+        device = hass.data["device_registry"].async_get_device({(DOMAIN, entry.entry_id)})
+        assert (device.manufacturer, device.model) == ("Sony", "PlayStation 4")
 
-    hass.states.async_set(
-        "media_player.xbox",
-        "playing",
-        {
-            "supported_features": 384,
-            "media_title": "Forza Horizon 5",
-            "entity_picture": "/api/media_player_proxy/media_player.xbox?token=abc",
-        },
-    )
-    await _tick(hass, freezer)
-    state = hass.states.get(hub)
-    assert state.state == "playing"
-    assert state.attributes["media_title"] == "Forza Horizon 5"
-    assert (
-        state.attributes["entity_picture"] == "/api/media_player_proxy/media_player.xbox?token=abc"
-    )
+        game = PsnSession("PS4", True, "Bloodborne", "CUSA00900_00", "https://psn/bb.png")
+        psn.return_value = PsnStatus(
+            account_id="1", online_id="Steph66", online_status="online", sessions={"PS4": game}
+        )
+        await _tick(hass, freezer, 61)  # the account is read every minute
+        state = hass.states.get("media_player.ps4")
+        assert (state.state, state.attributes["media_title"]) == ("playing", "Bloodborne")
 
-    # Registered after setup so it replaces the real media_player service.
-    turn_on = async_mock_service(hass, "media_player", "turn_on")
-    await entry.runtime_data.async_turn_on()
-    assert turn_on[0].data == {ATTR_ENTITY_ID: "media_player.xbox"}
+        psn.return_value = offline
+        await _tick(hass, freezer, 61)
+        assert hass.states.get("media_player.ps4").state == STATE_OFF
+
+
+async def test_removed_kind_asks_to_delete_the_console(hass: HomeAssistant) -> None:
+    """Following another integration's entity is gone: everything goes through Gaming Hub."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={"kind": "linked", "preset": "xbox", "source_entity": "media_player.x"}
+    )
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    assert entry.state is ConfigEntryState.SETUP_ERROR
 
 
 async def test_measured_power_and_energy(
     hass: HomeAssistant, mock_ddp, ps5_entry, freezer: FrozenDateTimeFactory
 ) -> None:
+    freezer.move_to("2026-10-21 12:00:00-07:00")  # not near midnight: play time is daily
     hass.states.async_set("sensor.prise_ps5", "100")
     ps5_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(ps5_entry, options={"power_entity": "sensor.prise_ps5"})
@@ -363,6 +368,7 @@ async def test_measured_power_and_energy(
 async def test_parental_control_turns_console_off(
     hass: HomeAssistant, mock_ddp, ps5_entry, freezer: FrozenDateTimeFactory
 ) -> None:
+    freezer.move_to("2026-10-21 12:00:00-07:00")  # not near midnight: play time is daily
     events = async_capture_events(hass, EVENT_PARENTAL)
     await _setup(hass, ps5_entry)
     await hass.services.async_call(
@@ -444,6 +450,7 @@ async def test_parental_block_entity_and_schedule(
 async def test_usage_is_saved_while_running(
     hass: HomeAssistant, mock_ddp, ps5_entry, hass_storage, freezer: FrozenDateTimeFactory
 ) -> None:
+    freezer.move_to("2026-10-21 12:00:00-07:00")  # not near midnight: play time is daily
     await _setup(hass, ps5_entry)
     key = f"{DOMAIN}.{ps5_entry.entry_id}"
     await _tick(hass, freezer, 1)

@@ -12,7 +12,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_UNIT_OF_MEASUREMENT, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_track_state_change_event
@@ -23,6 +23,7 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_BLOCK_ENTITY,
     CONF_KIND,
+    CONF_MODEL,
     CONF_NPSSO,
     CONF_POWER_ENTITY,
     CONF_PRESET,
@@ -34,11 +35,10 @@ from .const import (
     MESSAGES,
     STORAGE_VERSION,
     ConsoleKind,
-    LinkedPreset,
 )
 from .drivers import ConsoleDriver
 from .drivers.base import unsupported
-from .models import ConsoleSnapshot
+from .models import ConsoleSnapshot, PowerState
 from .parental import (
     BlockReason,
     Notice,
@@ -74,11 +74,11 @@ class ConsoleData:
 def profile_key(data: dict[str, Any]) -> str:
     """Key of DEVICE_INFO for an entry."""
     kind = ConsoleKind(data[CONF_KIND])
-    return data.get(CONF_PRESET, LinkedPreset.OTHER) if kind is ConsoleKind.LINKED else kind
+    return data[CONF_PRESET] if kind is ConsoleKind.PLAYSTATION else kind
 
 
-# PlayStation Network platform matching each console.
-PSN_PLATFORMS = {ConsoleKind.PS5: "PS5", ConsoleKind.PS3: "PS3", LinkedPreset.PS4: "PS4"}
+# PlayStation Network platform matching each console (profile key).
+PSN_PLATFORMS = {"ps5": "PS5", "ps3": "PS3", "ps4": "PS4"}
 
 
 def _npsso_hash(npsso: str) -> str:
@@ -103,6 +103,7 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self.options = dict(entry.options)
         key = profile_key(dict(entry.data))
         self.manufacturer, self.model = DEVICE_INFO[key]
+        self.model = entry.data.get(CONF_MODEL) or self.model
         self.usage = UsageTracker()
         self.parental = ParentalController(ParentalSettings())
         self._store: Store[dict[str, Any]] = Store(
@@ -189,6 +190,8 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
     async def _async_update_data(self) -> ConsoleData:
         try:
             snapshot = await self.driver.async_fetch()
+        except ConfigEntryAuthFailed:
+            raise
         except Exception as err:  # drivers report an unreachable console as off
             raise UpdateFailed(f"{type(err).__name__}: {err}") from err
         now = dt_util.now()
@@ -196,7 +199,13 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self._merge_psn(snapshot)
         power = self._power()
         self.usage.update(now, snapshot.is_on, power)
-        decision = self.parental.evaluate(now, snapshot.is_on, self.usage.playtime)
+        # The maker's own count when the driver has it (Nintendo account), else the hub's.
+        playtime, week, month = snapshot.playtime or (
+            self.usage.playtime,
+            self.usage.week_playtime,
+            self.usage.month_playtime,
+        )
+        decision = self.parental.evaluate(now, snapshot.is_on, playtime)
         self._schedule_save(now)
         if decision.notice or decision.enforce:
             self.config_entry.async_create_background_task(
@@ -206,9 +215,9 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             snapshot=snapshot,
             power=power,
             energy=self.usage.energy,
-            playtime=self.usage.playtime,
-            playtime_week=self.usage.week_playtime,
-            playtime_month=self.usage.month_playtime,
+            playtime=playtime,
+            playtime_week=week,
+            playtime_month=month,
             parental=decision,
         )
 
@@ -220,7 +229,9 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self._psn_was_on = console_on
         if not just_on and time.monotonic() < self._psn_next:
             return
-        self._psn_next = time.monotonic() + (PSN_INTERVAL_ON if console_on else PSN_INTERVAL_OFF)
+        # A console known through the account alone is watched there all the time.
+        watch = console_on or self.driver.power_from_psn
+        self._psn_next = time.monotonic() + (PSN_INTERVAL_ON if watch else PSN_INTERVAL_OFF)
         try:
             self.psn_status = await self.psn.async_get_status()
         except PsnAuthError:
@@ -252,6 +263,8 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             "ps_plus": status.plus,
         }
         session = status.sessions.get(self.psn_platform or "")
+        if self.driver.power_from_psn:
+            snapshot.power = PowerState.ON if session and session.online else PowerState.OFF
         if snapshot.is_on and not snapshot.title and session and session.online and session.title:
             snapshot.in_game = True
             snapshot.title = session.title

@@ -23,10 +23,18 @@ def create_driver(hass: HomeAssistant, entry: GamingHubConfigEntry) -> ConsoleDr
         from .ps3 import Ps3Driver
 
         return Ps3Driver(hass, entry)
-    if kind is ConsoleKind.SWITCH:
-        from .switch import SwitchDriver
+    if kind is ConsoleKind.NINTENDO:
+        from .nintendo import NintendoDriver
 
-        return SwitchDriver(hass, entry)
-    from .linked import LinkedDriver
+        return NintendoDriver(hass, entry)
+    if kind is ConsoleKind.STEAM:
+        from .steam import SteamDriver
 
-    return LinkedDriver(hass, entry)
+        return SteamDriver(hass, entry)
+    if kind is ConsoleKind.PLAYSTATION:
+        from .playstation import PlayStationAccountDriver
+
+        return PlayStationAccountDriver(hass, entry)
+    from .switch import SwitchDriver
+
+    return SwitchDriver(hass, entry)

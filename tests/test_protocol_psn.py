@@ -209,3 +209,25 @@ async def test_rejected_access_token_is_renewed_once(sony) -> None:
     status = await client.async_get_status()
     assert status.online_id == "Steph66"
     assert fake.calls[:3] == ["profile", "authorize", "token:authorization_code"]
+
+
+def test_ps3_game_icon_from_the_title_id() -> None:
+    status = parse_status(
+        {
+            "profile": {
+                "accountId": "1",
+                "presences": [
+                    {
+                        "onlineStatus": "online",
+                        "platform": "PS3",
+                        "npTitleId": "NPEB01234_00",
+                        "titleName": "Journey",
+                    }
+                ],
+            }
+        },
+        None,
+    )
+    image = status.sessions["PS3"].image
+    assert image.startswith("https://tmdb.np.dl.playstation.net/tmdb/NPEB01234_00_")
+    assert image.endswith("/ICON0.PNG")

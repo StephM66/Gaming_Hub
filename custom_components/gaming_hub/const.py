@@ -14,22 +14,25 @@ SIGNAL_CONSOLES_UPDATED: Final = f"{DOMAIN}_consoles_updated"
 
 
 class ConsoleKind(StrEnum):
-    """One driver per kind."""
+    """One driver per kind. Gaming Hub talks to the console or to the maker's account itself."""
 
     PS5 = "ps5"
-    PS3 = "ps3"
-    SWITCH = "switch"
-    LINKED = "linked"  # any console already in Home Assistant (Xbox, PS4, Steam…)
+    NINTENDO = "nintendo"  # Switch and Switch 2 through the Nintendo account, unmodified
+    STEAM = "steam"  # PC, Steam Deck… through the Steam account
+    PLAYSTATION = "playstation"  # PS4 or PS3 through the PlayStation Network account
+    PS3 = "ps3"  # modified PS3 (webMAN MOD)
+    SWITCH = "switch"  # modified Switch (Switch Assistant)
 
 
-class LinkedPreset(StrEnum):
-    """Presets of the linked driver (manufacturer and model shown)."""
+# Kinds of earlier versions, removed: their entries ask to be deleted.
+REMOVED_KINDS: Final = frozenset({"linked"})
 
-    XBOX = "xbox"
+
+class PsnConsole(StrEnum):
+    """Consoles followed through the PlayStation Network account alone."""
+
     PS4 = "ps4"
-    PC = "pc"
-    RETRO = "retro"
-    OTHER = "other"
+    PS3 = "ps3"  # same key as ConsoleKind.PS3 in DEVICE_INFO
 
 
 # Entry data
@@ -45,10 +48,13 @@ CONF_ACCOUNT_ID: Final = "account_id"
 CONF_PIN: Final = "pin"
 CONF_CLIENT_ID: Final = "client_id"
 CONF_DISCOVERY_PREFIX: Final = "discovery_prefix"
-CONF_SOURCE_ENTITY: Final = "source_entity"
-CONF_PRESET: Final = "preset"
-CONF_ON_THRESHOLD: Final = "on_threshold"
+CONF_PRESET: Final = "preset"  # PsnConsole of a PLAYSTATION entry
 CONF_NPSSO: Final = "npsso"
+CONF_SESSION_TOKEN: Final = "session_token"  # Nintendo account
+CONF_DEVICE_ID: Final = "device_id"
+CONF_MODEL: Final = "model"
+CONF_API_KEY: Final = "api_key"  # Steam Web API
+CONF_STEAM_ID: Final = "steam_id"
 
 # Options (every kind)
 CONF_POWER_ENTITY: Final = "power_entity"
@@ -68,13 +74,11 @@ DEFAULT_SWITCH_IMAGE_TEMPLATE: Final = "https://tinfoil.media/ti/{title_id}/256/
 
 DEVICE_INFO: Final[dict[str, tuple[str, str]]] = {
     ConsoleKind.PS5: ("Sony", "PlayStation 5"),
-    ConsoleKind.PS3: ("Sony", "PlayStation 3"),
+    ConsoleKind.PS3: ("Sony", "PlayStation 3"),  # also PsnConsole.PS3 (same key)
+    PsnConsole.PS4: ("Sony", "PlayStation 4"),
     ConsoleKind.SWITCH: ("Nintendo", "Switch"),
-    LinkedPreset.XBOX: ("Microsoft", "Xbox"),
-    LinkedPreset.PS4: ("Sony", "PlayStation 4"),
-    LinkedPreset.PC: ("PC", "PC / Steam Deck"),
-    LinkedPreset.RETRO: ("Retro", "Console rétro"),
-    LinkedPreset.OTHER: ("Gaming Hub", "Console"),
+    ConsoleKind.NINTENDO: ("Nintendo", "Switch"),  # model from the account (Switch 2)
+    ConsoleKind.STEAM: ("Valve", "Steam"),
 }
 
 # Messages shown on the console and carried by events (fr, else en).

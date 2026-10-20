@@ -6,9 +6,11 @@
         "title": "Add a console",
         "menu_options": {
           "ps5": "PlayStation 5",
-          "ps3": "PlayStation 3 (webMAN MOD)",
-          "switch": "Nintendo Switch (Switch Assistant)",
-          "linked": "Xbox or another console already in Home Assistant",
+          "nintendo": "Nintendo Switch or Switch 2 (Nintendo account, no modification)",
+          "steam": "PC or Steam Deck (Steam account)",
+          "playstation": "PS4 or PS3 (PlayStation Network account)",
+          "ps3": "Modified PlayStation 3 (webMAN MOD)",
+          "switch": "Modified Nintendo Switch (Switch Assistant)",
           "summary": "Statistics of all the consoles"
         }
       },
@@ -47,7 +49,7 @@
       },
       "ps3": {
         "title": "PlayStation 3",
-        "description": "Requires a console running webMAN MOD (CFW or PS3HEN) and turned on. A PS3 cannot be powered on over the network: link a script in the options (HDMI-CEC, Bluetooth, button pusher…).",
+        "description": "Requires a console running webMAN MOD (CFW or PS3HEN) and turned on. A PS3 cannot be powered on over the network: link a script in the options (e.g. HDMI-CEC through the TV).",
         "data": {
           "host": "IP address",
           "port": "webMAN port",
@@ -71,16 +73,6 @@
           "name": "Name"
         }
       },
-      "linked": {
-        "title": "Console already in Home Assistant",
-        "description": "Gaming Hub follows an existing entity: the Xbox or PlayStation 4 media player, a PlayStation Network media player, a smart plug power sensor…",
-        "data": {
-          "preset": "Type",
-          "source_entity": "Source entity",
-          "name": "Name",
-          "on_threshold": "On above (power sensor only)"
-        }
-      },
       "psn": {
         "title": "PlayStation Network account (optional)",
         "description": "Gives the current game with its artwork, the online status, trophies and PlayStation Plus, without any other integration. Sign in on playstation.com, open {npsso_url} and copy the value of \"npsso\". Leave empty to skip.",
@@ -101,6 +93,56 @@
           "psn": "PlayStation Network account",
           "ps5_pairing": "Power control pairing"
         }
+      },
+      "nintendo": {
+        "title": "Nintendo account",
+        "description": "Sign in with the Nintendo account that manages the console in the Nintendo Switch Parental Controls app (the console must be linked to it). Open the [Nintendo sign-in]({login_url}), sign in, then right-click the red button of the account (long press on a phone), choose **Copy link** and paste it below.\n\nNintendo gives the games and the play time with a delay, never whether the console is on, and does not allow turning it on or off: the hub counts the console on while its play time grows.",
+        "data": {
+          "link": "Copied link"
+        }
+      },
+      "nintendo_console": {
+        "title": "Console",
+        "description": "This Nintendo account manages several consoles.",
+        "data": {
+          "device_id": "Console",
+          "name": "Name"
+        }
+      },
+      "nintendo_reauth": {
+        "title": "Nintendo account signed out",
+        "description": "Nintendo refused the session (signed out, password changed…). Open the [Nintendo sign-in]({login_url}), sign in, then right-click the red button of the account (long press on a phone), choose **Copy link** and paste it below.",
+        "data": {
+          "link": "Copied link"
+        }
+      },
+      "steam": {
+        "title": "Steam account",
+        "description": "Gaming Hub reads the account's status and the game being played through Steam's official API, for a PC, a Steam Deck or anything running Steam.\n\n1. Create a key on [Steam's key page]({key_url}) while signed in to the account (any domain name, e.g. homeassistant.local). Steam may ask to confirm in the Steam mobile app.\n2. In the Steam profile, Privacy settings → Game details: **Public**, or the game is not reported.",
+        "data": {
+          "api_key": "Steam Web API key",
+          "account": "Account",
+          "name": "Name"
+        },
+        "data_description": {
+          "account": "Profile link (steamcommunity.com/id/… or /profiles/…), custom profile name or SteamID64."
+        }
+      },
+      "steam_reauth": {
+        "title": "Steam key refused",
+        "description": "Steam refused the Web API key (revoked or replaced). Create a new one on [Steam's key page]({key_url}).",
+        "data": {
+          "api_key": "Steam Web API key"
+        }
+      },
+      "playstation": {
+        "title": "PS4 or PS3 through the PlayStation Network",
+        "description": "Gaming Hub follows the console through its PlayStation Network account: on while the account is online on it, with the game being played. The console must sign in to the PlayStation Network when it starts. No power on or off.\n\nSign in on playstation.com, open {npsso_url} and copy the value of \"npsso\".",
+        "data": {
+          "preset": "Console",
+          "npsso": "NPSSO token",
+          "name": "Name"
+        }
       }
     },
     "error": {
@@ -113,7 +155,13 @@
       "in_use": "Remote Play is already in use.",
       "pairing_failed": "Pairing failed.",
       "invalid_npsso": "This NPSSO token is not valid (expired, or copied incompletely).",
-      "psn_unavailable": "PlayStation Network did not answer, try again later."
+      "psn_unavailable": "PlayStation Network did not answer, try again later.",
+      "invalid_link": "This is not a valid link, or it has already been used: open the sign-in link again.",
+      "nintendo_unavailable": "Nintendo did not answer, try again later.",
+      "nintendo_console_missing": "This console is no longer linked to this Nintendo account.",
+      "invalid_api_key": "Steam refuses this key.",
+      "steam_account_not_found": "No Steam account matches: paste the profile link.",
+      "steam_unavailable": "Steam did not answer, try again later."
     },
     "abort": {
       "already_configured": "This console is already configured.",
@@ -121,7 +169,8 @@
       "invalid_discovery": "Unexpected MQTT topic.",
       "reconfigure_unsupported": "Nothing to reconfigure for this console: remove it and add it again.",
       "reconfigure_successful": "Pairing updated.",
-      "reauth_successful": "PlayStation Network account updated."
+      "reauth_successful": "Account updated.",
+      "no_nintendo_console": "No console is linked to this Nintendo account in the Parental Controls app."
     }
   },
   "options": {
@@ -137,9 +186,9 @@
         },
         "data_description": {
           "power_entity": "A smart plug powering the console: the Power and Energy sensors only exist with it.",
-          "turn_on_entity": "Script, button or switch replacing the native command (PS3: HDMI-CEC, Bluetooth, button pusher).",
+          "turn_on_entity": "Script, button or switch replacing the native command (e.g. HDMI-CEC through the TV).",
           "turn_off_entity": "Script, button or switch replacing the native command.",
-          "block_entity": "Activated instead of turning the console off when play time is over, e.g. the Nintendo Switch Parental Controls suspend switch.",
+          "block_entity": "Activated instead of turning the console off when play time is over.",
           "image_template": "Leave empty to disable artwork."
         }
       },
@@ -158,13 +207,10 @@
     }
   },
   "selector": {
-    "preset": {
+    "psn_console": {
       "options": {
-        "xbox": "Xbox",
         "ps4": "PlayStation 4",
-        "pc": "PC / Steam Deck",
-        "retro": "Retro console",
-        "other": "Other"
+        "ps3": "PlayStation 3"
       }
     }
   },
@@ -354,6 +400,18 @@
       },
       "games": {
         "name": "Games being played"
+      },
+      "steam_status": {
+        "name": "Steam",
+        "state": {
+          "offline": "Offline",
+          "online": "Online",
+          "busy": "Busy",
+          "away": "Away",
+          "snooze": "Snooze",
+          "looking_to_trade": "Looking to trade",
+          "looking_to_play": "Looking to play"
+        }
       }
     },
     "switch": {
@@ -376,6 +434,9 @@
     },
     "command_failed": {
       "message": "The console did not accept the command: {reason}."
+    },
+    "removed_kind": {
+      "message": "Gaming Hub no longer follows another integration's entity: everything goes through Gaming Hub. Delete this console and add it again with a supported type."
     }
   }
 }
