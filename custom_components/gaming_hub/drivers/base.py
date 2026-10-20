@@ -32,6 +32,8 @@ class ConsoleDriver:
     can_notify = False
     has_screen = False  # live picture (camera entity)
     configuration_url: str | None = None  # console web page, shown on the device
+    # On or off as the PlayStation Network account sees it (no local protocol).
+    power_from_psn = False
 
     def __init__(self, hass: HomeAssistant, entry: GamingHubConfigEntry) -> None:
         self.hass = hass

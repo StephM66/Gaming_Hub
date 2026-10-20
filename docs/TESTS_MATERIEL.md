@@ -74,43 +74,42 @@ curl -s http://IP_PS3/cpursx.ps3 -o cpursx_jeu.html      # en jeu
 
 ## Nintendo Switch ou Switch 2 (compte Nintendo, sans modification)
 
-Console associée à l'application Contrôle parental Nintendo Switch. Entité de présence : par
-exemple l'entrée HDMI de la Sync Box (`linked` quand l'image arrive).
+Console associée à l'application Contrôle parental Nintendo Switch.
 
 | # | Essai | Attendu |
 |---|---|---|
 | 1 | Ajout : lien de connexion, lien copié collé | console(s) du compte proposée(s) ; entrée créée, modèle Switch ou Switch 2 |
 | 2 | Temps de jeu aujourd'hui, semaine, mois | mêmes valeurs que l'application Contrôle parental (à son délai près) |
-| 3 | Lancer un jeu, console allumée (présence `on`) | `playing` avec titre et jaquette : **noter le délai** entre le lancement et l'affichage |
+| 3 | Lancer un jeu | `playing` avec titre et jaquette : **noter le délai** entre le lancement et l'affichage |
 | 4 | Changer de jeu | nouveau titre affiché : noter le délai |
-| 5 | Mettre la console en veille sur le dock | `off` dès que l'entité de présence change ; noter si elle réapparaît `on` ensuite, et combien de temps |
-| 6 | Sans entité de présence (option vidée) | `on` quand le temps de jeu augmente, `off` 30 min après la dernière minute ajoutée |
-| 6 b | Jouer en portable (hors du dock) | `playing` avec le titre, après le délai de Nintendo, malgré l'entrée HDMI éteinte |
+| 5 | Arrêter de jouer, mettre en veille | `off` 30 min après la dernière minute ajoutée |
+| 6 | Jouer en portable (hors du dock) | comme devant la TV |
 | 7 | Jeu Switch 2 | titre et jaquette présents (sinon, joindre les diagnostics) |
 | 8 | Se déconnecter du compte Nintendo sur le site Nintendo | demande de reconnexion dans Home Assistant ; reconnexion par le même parcours |
 | 9 | Redémarrage de Home Assistant en cours de jeu | pas de jeu affiché à tort ; temps de jeu inchangé |
 
 Point sensible : le délai de synchronisation de la console vers Nintendo n'est pas connu. Les
-essais 3, 4 et 6 le mesurent. S'il est long, le jeu en cours affiché arrive en retard.
+essais 3 et 4 le mesurent. S'il est long, le jeu en cours affiché arrive en retard.
 
-## PlayStation 3 sans modification
-
-| # | Essai | Attendu |
-|---|---|---|
-| 1 | Ajout avec l'entrée HDMI comme entité source, puis le compte PSN | entrée créée, modèle PlayStation 3 |
-| 2 | PS3 allumée, sur le XMB | `on` d'après l'entité |
-| 3 | PS3 connectée au PSN, en jeu | `playing` avec le titre et l'icône du jeu (compte PSN, moins de deux minutes) |
-| 4 | PS3 éteinte | `off` dès que l'entité change |
-
-## PC ou Steam Deck (intégration Steam)
+## PS4 ou PS3 (compte PlayStation Network)
 
 | # | Essai | Attendu |
 |---|---|---|
-| 1 | Ajout avec le capteur du compte Steam comme entité source, type « PC / Steam Deck » | entrée créée |
-| 2 | Steam ouvert, pas de jeu | `off` avec `power_state` = `standby` |
-| 3 | Lancer un jeu | `playing` avec le titre et la jaquette, au rythme de l'intégration Steam |
+| 1 | Ajout avec le jeton NPSSO | entrée créée, modèle PlayStation 4 ou 3 |
+| 2 | Console allumée et connectée au PSN | `on` en moins de deux minutes |
+| 3 | En jeu | `playing` avec le titre et la jaquette (icône pour la PS3) |
+| 4 | Console éteinte | `off` en moins de deux minutes |
+
+## PC ou Steam Deck (compte Steam)
+
+| # | Essai | Attendu |
+|---|---|---|
+| 1 | Ajout : clé d'API, lien du profil | entrée créée au nom du compte |
+| 2 | Steam ouvert, pas de jeu | `off` avec `power_state` = `standby` ; capteur Steam `online` |
+| 3 | Lancer un jeu | `playing` avec le titre et la jaquette en moins d'une minute |
 | 4 | Temps de jeu | ne compte que le temps en jeu |
 | 5 | Steam fermé | `off` |
+| 6 | Clé révoquée sur la page des clés Steam | demande d'une nouvelle clé dans Home Assistant |
 
 ## Contrôle parental et consommation (une console suffit)
 

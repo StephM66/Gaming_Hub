@@ -35,7 +35,15 @@ def no_setup():
 async def _menu(hass: HomeAssistant, choice: str):
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["ps5", "nintendo", "ps3", "switch", "linked", "summary"]
+    assert result["menu_options"] == [
+        "ps5",
+        "nintendo",
+        "steam",
+        "playstation",
+        "ps3",
+        "switch",
+        "summary",
+    ]
     return await hass.config_entries.flow.async_configure(
         result["flow_id"], {"next_step_id": choice}
     )
@@ -247,15 +255,27 @@ async def test_switch_mqtt_discovery(hass: HomeAssistant) -> None:
     assert result["reason"] == "already_configured"
 
 
-async def test_linked_xbox(hass: HomeAssistant) -> None:
-    hass.states.async_set("media_player.xbox_series_x", "on", {"friendly_name": "Xbox Series X"})
-    result = await _menu(hass, "linked")
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"preset": "xbox", "source_entity": "media_player.xbox_series_x"}
-    )
+async def test_ps4_through_the_psn_account(hass: HomeAssistant) -> None:
+    result = await _menu(hass, "playstation")
+    with patch(PSN_STATUS, AsyncMock(side_effect=PsnAuthError("x"))):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"preset": "ps4", "npsso": "bad"}
+        )
+    assert result["errors"] == {"base": "invalid_npsso"}
+    with patch(PSN_STATUS, AsyncMock(return_value=ACCOUNT)):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"preset": "ps4", "npsso": "abc"}
+        )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Xbox Series X"
-    assert result["data"]["preset"] == "xbox"
+    assert result["title"] == "PlayStation 4"
+    assert result["data"] == {
+        "kind": "playstation",
+        "preset": "ps4",
+        "name": "PlayStation 4",
+        "npsso": "abc",
+        "account_id": "1234567890123456789",
+    }
+    assert result["result"].unique_id == "psn_1234567890123456789_ps4"
 
 
 async def test_options(hass: HomeAssistant, ps5_entry) -> None:

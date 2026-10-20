@@ -7,10 +7,11 @@ import logging
 
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from . import consumption
-from .const import CONF_KIND, SIGNAL_CONSOLES_UPDATED, SUMMARY
+from .const import CONF_KIND, DOMAIN, REMOVED_KINDS, SIGNAL_CONSOLES_UPDATED, SUMMARY
 from .coordinator import GamingHubConfigEntry, GamingHubCoordinator
 from .drivers import create_driver
 
@@ -41,6 +42,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) ->
     if entry.data.get(CONF_KIND) == SUMMARY:
         await hass.config_entries.async_forward_entry_setups(entry, SUMMARY_PLATFORMS)
         return True
+    if entry.data.get(CONF_KIND) in REMOVED_KINDS:
+        # Everything goes through Gaming Hub: following another integration's entity is gone.
+        raise ConfigEntryError(translation_domain=DOMAIN, translation_key="removed_kind")
     coordinator = GamingHubCoordinator(hass, entry, create_driver(hass, entry))
     await coordinator.async_start()
     try:

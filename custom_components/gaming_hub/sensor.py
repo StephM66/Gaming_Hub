@@ -31,6 +31,7 @@ from .const import CONF_KIND, SUMMARY
 from .coordinator import ConsoleData, GamingHubConfigEntry, GamingHubCoordinator
 from .entity import GamingHubEntity
 from .parental import ParentalStatus
+from .protocols.steam import STATUSES as STEAM_STATUSES
 from .summary import SUMMARY_SENSORS, SummarySensor
 
 PARALLEL_UPDATES = 0
@@ -282,6 +283,17 @@ DRIVER_SENSORS: dict[str, HubSensorDescription] = {
             device_class=SensorDeviceClass.ENUM,
             options=["speaker", "headphone", "tv", "usb", "bluetooth", "unknown"],
             value_fn=_attribute("audio_output"),
+        ),
+        # Steam account
+        HubSensorDescription(
+            key="steam_status",
+            device_class=SensorDeviceClass.ENUM,
+            options=list(STEAM_STATUSES),
+            value_fn=_attribute("steam_status"),
+            attributes_fn=lambda data: {
+                "name": data.snapshot.attributes.get("steam_name"),
+                "avatar": data.snapshot.attributes.get("steam_avatar"),
+            },
         ),
         # PlayStation Network account
         HubSensorDescription(

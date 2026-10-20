@@ -4,29 +4,24 @@ Nintendo publishes each console's play time per game (the Parental Controls app)
 the official play time of the day, week and month, the games played today, and the current
 game, deduced from the minutes that grow between two polls.
 
-Nintendo gives no power state and no command. An optional presence entity says whether the
-console is on (any entity, read by ``presence.is_present``: HDMI input, ping, TV source,
-plug…). Without one, or while it says off, the console counts as on while its play time grows:
-it may be played away from the TV (handheld, Switch Lite).
+Nintendo gives no power state and no command: the console counts as on while its play time
+grows, with the delay of its reports to Nintendo, wherever it is played (TV, handheld, Lite).
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 import logging
 import time
 
-from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
-from ..const import CONF_DEVICE_ID, CONF_PRESENCE_ENTITY, CONF_SESSION_TOKEN
+from ..const import CONF_DEVICE_ID, CONF_SESSION_TOKEN
 from ..models import ConsoleSnapshot, PowerState
-from ..presence import is_present
 from ..protocols.nintendo import (
     GameTime,
     NintendoAuthError,
@@ -38,14 +33,12 @@ from ..usage import month_of, week_of
 from .base import ConsoleDriver
 
 _LOGGER = logging.getLogger(__name__)
-# Nintendo is read at each refresh (just under its interval), also while the presence entity
-# says off: the console may be played away from the TV.
+# Nintendo is read at each refresh (just under its interval).
 POLL_INTERVAL = 55
 CATALOG_INTERVAL = 3600  # console information and game names
 CATALOG_RETRY = 15 * 60  # a game played today that the console's list does not name yet
-# No minute added for that long: no current game (and, unless the presence entity says on, off).
+# No minute added for that long: off, no current game.
 ACTIVE_WINDOW = timedelta(minutes=30)
-ON_THRESHOLD = 5.0  # W, for a power sensor as presence entity
 
 
 def _language(language: str, country: str | None) -> str:
@@ -59,55 +52,25 @@ class NintendoDriver(ConsoleDriver):
     def __init__(self, hass: HomeAssistant, entry) -> None:
         super().__init__(hass, entry)
         self.device_id: str = entry.data[CONF_DEVICE_ID]
-        self.presence: str | None = entry.options.get(CONF_PRESENCE_ENTITY)
         self.client = NintendoClient(
             async_get_clientsession(hass),
             entry.data[CONF_SESSION_TOKEN],
             time_zone=hass.config.time_zone,
             language=_language(hass.config.language, hass.config.country),
         )
-        self._unsubscribe: Callable[[], None] | None = None
         self._days: list[PlayDay] | None = None  # None until Nintendo first answers
         self._titles: dict[str, GameTime] = {}
         self._system_version: str | None = None
         self._next_poll = 0.0
         self._next_catalog = 0.0
-        self._off_at: datetime | None = None  # since when the presence entity says off
         # Today's minutes per game at the previous poll (None until a first poll).
         self._minutes: dict[str, float] | None = None
         self._minutes_day: date | None = None
         self._current: GameTime | None = None
         self._grew_at: datetime | None = None
 
-    async def async_start(self, on_change: Callable[[], None]) -> None:
-        if self.presence is None:
-            return
-
-        @callback
-        def changed(event: Event[EventStateChangedData]) -> None:
-            on_change()
-
-        self._unsubscribe = async_track_state_change_event(self.hass, [self.presence], changed)
-
-    async def async_stop(self) -> None:
-        if self._unsubscribe:
-            self._unsubscribe()
-            self._unsubscribe = None
-
-    def _present(self) -> bool | None:
-        if self.presence is None:
-            return None
-        state = self.hass.states.get(self.presence)
-        threshold = ON_THRESHOLD if self.presence.startswith("sensor.") else None
-        return is_present(state, threshold)
-
     async def async_fetch(self) -> ConsoleSnapshot:
         now = dt_util.now()
-        present = self._present()
-        if present:
-            self._off_at = None
-        elif present is False and self._off_at is None:
-            self._off_at = now
         try:
             await self._async_poll(now)
         except NintendoAuthError as err:
@@ -115,14 +78,9 @@ class NintendoDriver(ConsoleDriver):
         except NintendoError as err:
             if self._days is None:
                 raise  # nothing known yet: setting up is retried later
-            # Nintendo unreachable: keep what is known, the presence entity still answers.
+            # Nintendo unreachable: keep what is known.
             _LOGGER.debug("Nintendo account unavailable: %s", err)
-        growing = self._grew_at is not None and now - self._grew_at <= ACTIVE_WINDOW
-        if present is None:
-            on = growing
-        else:
-            # Off at the TV, yet minutes added since: played elsewhere (handheld, Switch Lite).
-            on = present or (growing and self._off_at is not None and self._grew_at > self._off_at)
+        on = self._grew_at is not None and now - self._grew_at <= ACTIVE_WINDOW
         snapshot = ConsoleSnapshot(
             PowerState.ON if on else PowerState.OFF,
             attributes={"system_version": self._system_version},
@@ -136,7 +94,7 @@ class NintendoDriver(ConsoleDriver):
                 },
                 "players": today.players,
             }
-        if on and growing and self._current:
+        if on and self._current:
             game = self._named(self._current)
             snapshot.in_game = True
             snapshot.title = game.title

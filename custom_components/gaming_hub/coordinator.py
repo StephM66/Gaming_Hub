@@ -35,11 +35,10 @@ from .const import (
     MESSAGES,
     STORAGE_VERSION,
     ConsoleKind,
-    LinkedPreset,
 )
 from .drivers import ConsoleDriver
 from .drivers.base import unsupported
-from .models import ConsoleSnapshot
+from .models import ConsoleSnapshot, PowerState
 from .parental import (
     BlockReason,
     Notice,
@@ -75,11 +74,11 @@ class ConsoleData:
 def profile_key(data: dict[str, Any]) -> str:
     """Key of DEVICE_INFO for an entry."""
     kind = ConsoleKind(data[CONF_KIND])
-    return data.get(CONF_PRESET, LinkedPreset.OTHER) if kind is ConsoleKind.LINKED else kind
+    return data[CONF_PRESET] if kind is ConsoleKind.PLAYSTATION else kind
 
 
-# PlayStation Network platform matching each console.
-PSN_PLATFORMS = {ConsoleKind.PS5: "PS5", ConsoleKind.PS3: "PS3", LinkedPreset.PS4: "PS4"}
+# PlayStation Network platform matching each console (profile key).
+PSN_PLATFORMS = {"ps5": "PS5", "ps3": "PS3", "ps4": "PS4"}
 
 
 def _npsso_hash(npsso: str) -> str:
@@ -230,7 +229,9 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self._psn_was_on = console_on
         if not just_on and time.monotonic() < self._psn_next:
             return
-        self._psn_next = time.monotonic() + (PSN_INTERVAL_ON if console_on else PSN_INTERVAL_OFF)
+        # A console known through the account alone is watched there all the time.
+        watch = console_on or self.driver.power_from_psn
+        self._psn_next = time.monotonic() + (PSN_INTERVAL_ON if watch else PSN_INTERVAL_OFF)
         try:
             self.psn_status = await self.psn.async_get_status()
         except PsnAuthError:
@@ -262,6 +263,8 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             "ps_plus": status.plus,
         }
         session = status.sessions.get(self.psn_platform or "")
+        if self.driver.power_from_psn:
+            snapshot.power = PowerState.ON if session and session.online else PowerState.OFF
         if snapshot.is_on and not snapshot.title and session and session.online and session.title:
             snapshot.in_game = True
             snapshot.title = session.title

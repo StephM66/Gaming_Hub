@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import (
     CONF_ACCOUNT_ID,
+    CONF_API_KEY,
     CONF_DEVICE_ID,
     CONF_HOST_ID,
     CONF_KIND,
@@ -18,6 +19,7 @@ from .const import (
     CONF_REGIST_KEY,
     CONF_RP_KEY,
     CONF_SESSION_TOKEN,
+    CONF_STEAM_ID,
     SUMMARY,
 )
 from .coordinator import GamingHubConfigEntry
@@ -31,10 +33,13 @@ TO_REDACT = {
     CONF_RP_KEY,
     CONF_PASSCODE,
     CONF_ACCOUNT_ID,
-    CONF_DEVICE_ID,
     CONF_HOST_ID,
     CONF_SESSION_TOKEN,
     CONF_DEVICE_ID,
+    CONF_API_KEY,
+    CONF_STEAM_ID,
+    "steam_name",
+    "steam_avatar",
     "players",  # nicknames of the console's users
     "online_id",
     "psn_online_id",

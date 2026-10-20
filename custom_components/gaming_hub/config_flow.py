@@ -20,9 +20,6 @@ from homeassistant.helpers.selector import (
     BooleanSelector,
     EntitySelector,
     EntitySelectorConfig,
-    NumberSelector,
-    NumberSelectorConfig,
-    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -36,6 +33,7 @@ import voluptuous as vol
 
 from .const import (
     CONF_ACCOUNT_ID,
+    CONF_API_KEY,
     CONF_BLOCK_ENTITY,
     CONF_CLIENT_ID,
     CONF_DEVICE_ID,
@@ -49,29 +47,28 @@ from .const import (
     CONF_MODEL,
     CONF_NAME,
     CONF_NPSSO,
-    CONF_ON_THRESHOLD,
     CONF_PASSCODE,
     CONF_PIN,
     CONF_PORT,
     CONF_POWER_ENTITY,
-    CONF_PRESENCE_ENTITY,
     CONF_PRESET,
     CONF_REGIST_KEY,
     CONF_RP_KEY,
     CONF_SESSION_TOKEN,
-    CONF_SOURCE_ENTITY,
+    CONF_STEAM_ID,
     CONF_TURN_OFF_ENTITY,
     CONF_TURN_ON_ENTITY,
     DEFAULT_SWITCH_IMAGE_TEMPLATE,
+    DEVICE_INFO,
     DOMAIN,
     PS5_MQTT_CREDENTIALS,
+    REMOVED_KINDS,
     SUMMARY,
     ConsoleKind,
-    LinkedPreset,
+    PsnConsole,
 )
 from .consumption import plug_energy_sensor
-from .coordinator import PSN_PLATFORMS, profile_key
-from .protocols import ddp, nintendo, remoteplay
+from .protocols import ddp, nintendo, remoteplay, steam
 from .protocols import switch_assistant as sa
 from .protocols.psn import NPSSO_URL, PsnAuthError, PsnClient, PsnError
 from .protocols.webman import DEFAULT_PORT, WebmanClient, WebmanError
@@ -84,25 +81,10 @@ PAIRING_ERRORS = {
     "cannot_connect",
     "in_use",
 }
-SOURCE_DOMAINS = [
-    Platform.MEDIA_PLAYER,
-    Platform.SWITCH,
-    Platform.BINARY_SENSOR,
-    "input_boolean",
-    "device_tracker",
-    Platform.SENSOR,
-]
 ACTION_DOMAINS = ["script", "scene", "button", "input_button", "switch", "input_boolean"]
 PASSWORD = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 CONF_LINK = "link"  # Nintendo account link pasted during sign-in
-
-
-def _watts() -> NumberSelector:
-    return NumberSelector(
-        NumberSelectorConfig(
-            min=0, max=1000, step=0.5, unit_of_measurement="W", mode=NumberSelectorMode.BOX
-        )
-    )
+CONF_ACCOUNT = "account"  # Steam account as typed: SteamID64, profile link or custom name
 
 
 def _read_playactor_file(path: Path, host_id: str | None) -> remoteplay.Ps5Credentials | None:
@@ -134,7 +116,7 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
     @classmethod
     @callback
     def async_supports_options_flow(cls, config_entry: ConfigEntry) -> bool:
-        return config_entry.data.get(CONF_KIND) != SUMMARY
+        return config_entry.data.get(CONF_KIND) not in {SUMMARY, *REMOVED_KINDS}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
@@ -274,13 +256,12 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         entry = self._get_reconfigure_entry()
         self._data = dict(entry.data)
-        if entry.data[CONF_KIND] == SUMMARY:
+        if entry.data[CONF_KIND] not in (ConsoleKind.PS5, ConsoleKind.PS3):
+            # Account consoles renew their sign-in when the account asks (reauthentication).
             return self.async_abort(reason="reconfigure_unsupported")
         if entry.data[CONF_KIND] == ConsoleKind.PS5:
             return self.async_show_menu(step_id="reconfigure", menu_options=["psn", "ps5_pairing"])
-        if PSN_PLATFORMS.get(profile_key(self._data)):
-            return await self.async_step_psn()
-        return self.async_abort(reason="reconfigure_unsupported")
+        return await self.async_step_psn()  # modified PS3: link or unlink the account
 
     # --- PlayStation Network (PS5, PS3, PS4) ----------------------------------
 
@@ -321,6 +302,8 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         if entry_data.get(CONF_KIND) == ConsoleKind.NINTENDO:
             return await self.async_step_nintendo_reauth()
+        if entry_data.get(CONF_KIND) == ConsoleKind.STEAM:
+            return await self.async_step_steam_reauth()
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
@@ -421,8 +404,10 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_nintendo_console(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Which console of the account, and which entity tells that it is on."""
+        """Which console of the account, when it has several."""
         devices = self._nintendo_devices
+        if user_input is None and len(devices) == 1:
+            user_input = {}
         if user_input is not None:
             device = devices[user_input.get(CONF_DEVICE_ID) or next(iter(devices))]
             await self.async_set_unique_id(f"nintendo_{device.device_id}")
@@ -434,27 +419,23 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_MODEL: device.model,
                 CONF_NAME: user_input.get(CONF_NAME) or device.name,
             }
-            presence = user_input.get(CONF_PRESENCE_ENTITY)
-            return self.async_create_entry(
-                title=self._data[CONF_NAME],
-                data=self._data,
-                options={CONF_PRESENCE_ENTITY: presence} if presence else {},
-            )
-        fields: dict[Any, Any] = {}
-        if len(devices) > 1:
-            fields[vol.Required(CONF_DEVICE_ID)] = SelectSelector(
-                SelectSelectorConfig(
-                    options=[
-                        SelectOptionDict(value=device_id, label=f"{device.name} ({device.model})")
-                        for device_id, device in devices.items()
-                    ]
-                )
-            )
-        fields[vol.Optional(CONF_PRESENCE_ENTITY)] = EntitySelector(
-            EntitySelectorConfig(domain=SOURCE_DOMAINS)
+            return self._create()
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_DEVICE_ID): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            SelectOptionDict(
+                                value=device_id, label=f"{device.name} ({device.model})"
+                            )
+                            for device_id, device in devices.items()
+                        ]
+                    )
+                ),
+                vol.Optional(CONF_NAME): str,
+            }
         )
-        fields[vol.Optional(CONF_NAME)] = str
-        return self.async_show_form(step_id="nintendo_console", data_schema=vol.Schema(fields))
+        return self.async_show_form(step_id="nintendo_console", data_schema=schema)
 
     async def async_step_nintendo_reauth(
         self, user_input: dict[str, Any] | None = None
@@ -471,6 +452,113 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
                     entry, data_updates={CONF_SESSION_TOKEN: token}
                 )
         return self._nintendo_form("nintendo_reauth", errors)
+
+    # --- PS4 or PS3 through the PlayStation Network account -------------------
+
+    async def async_step_playstation(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """On or off, game and artwork, as the PlayStation Network account sees the console."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            model = PsnConsole(user_input[CONF_PRESET])
+            psn, errors = await self._validate_npsso(user_input[CONF_NPSSO].strip())
+            if not errors:
+                await self.async_set_unique_id(f"psn_{psn[CONF_ACCOUNT_ID]}_{model}")
+                self._abort_if_unique_id_configured(updates=psn)
+                self._data = {
+                    CONF_KIND: ConsoleKind.PLAYSTATION.value,
+                    CONF_PRESET: model.value,
+                    CONF_NAME: user_input.get(CONF_NAME) or DEVICE_INFO[model][1],
+                    **psn,
+                }
+                return self._create()
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_PRESET, default=PsnConsole.PS4.value): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[console.value for console in PsnConsole],
+                        translation_key="psn_console",
+                        mode=SelectSelectorMode.LIST,
+                    )
+                ),
+                vol.Required(CONF_NPSSO): PASSWORD,
+                vol.Optional(CONF_NAME): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="playstation",
+            data_schema=schema,
+            description_placeholders={"npsso_url": NPSSO_URL},
+            errors=errors,
+        )
+
+    # --- Steam account (PC, Steam Deck) ---------------------------------------
+
+    async def _steam_status(
+        self, api_key: str, account: str
+    ) -> tuple[steam.SteamStatus | None, dict[str, str]]:
+        client = steam.SteamClient(async_get_clientsession(self.hass), api_key)
+        try:
+            return await client.async_status(await client.async_resolve(account)), {}
+        except steam.SteamAuthError:
+            return None, {"base": "invalid_api_key"}
+        except steam.SteamAccountError:
+            return None, {"base": "steam_account_not_found"}
+        except steam.SteamError:
+            return None, {"base": "steam_unavailable"}
+
+    async def async_step_steam(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Status and game of a Steam account, with the owner's Web API key."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            api_key = user_input[CONF_API_KEY].strip()
+            status, errors = await self._steam_status(api_key, user_input[CONF_ACCOUNT])
+            if status is not None:
+                await self.async_set_unique_id(f"steam_{status.steam_id}")
+                self._abort_if_unique_id_configured(updates={CONF_API_KEY: api_key})
+                self._data = {
+                    CONF_KIND: ConsoleKind.STEAM.value,
+                    CONF_API_KEY: api_key,
+                    CONF_STEAM_ID: status.steam_id,
+                    CONF_NAME: user_input.get(CONF_NAME) or status.name or "Steam",
+                }
+                return self._create()
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_API_KEY): PASSWORD,
+                vol.Required(CONF_ACCOUNT): str,
+                vol.Optional(CONF_NAME): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="steam",
+            data_schema=self.add_suggested_values_to_schema(
+                schema, {k: v for k, v in (user_input or {}).items() if k != CONF_API_KEY}
+            ),
+            description_placeholders={"key_url": steam.KEY_URL},
+            errors=errors,
+        )
+
+    async def async_step_steam_reauth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """The Web API key was revoked or replaced."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            entry = self._get_reauth_entry()
+            api_key = user_input[CONF_API_KEY].strip()
+            status, errors = await self._steam_status(api_key, entry.data[CONF_STEAM_ID])
+            if status is not None:
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_API_KEY: api_key}
+                )
+        return self.async_show_form(
+            step_id="steam_reauth",
+            data_schema=vol.Schema({vol.Required(CONF_API_KEY): PASSWORD}),
+            description_placeholders={"key_url": steam.KEY_URL},
+            errors=errors,
+        )
 
     # --- Nintendo Switch modified with Switch Assistant ----------------------
 
@@ -527,43 +615,6 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={"client_id": self._data[CONF_CLIENT_ID]},
         )
 
-    # --- Any other console already in Home Assistant -------------------------
-
-    async def async_step_linked(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        if user_input is not None:
-            source = user_input[CONF_SOURCE_ENTITY]
-            await self.async_set_unique_id(f"linked_{source}")
-            self._abort_if_unique_id_configured()
-            state = self.hass.states.get(source)
-            default_name = state.name if state else source
-            self._data = {
-                CONF_KIND: ConsoleKind.LINKED.value,
-                CONF_PRESET: user_input[CONF_PRESET],
-                CONF_SOURCE_ENTITY: source,
-                CONF_ON_THRESHOLD: user_input.get(CONF_ON_THRESHOLD, 5),
-                CONF_NAME: user_input.get(CONF_NAME) or default_name,
-            }
-            if PSN_PLATFORMS.get(user_input[CONF_PRESET]):
-                return await self.async_step_psn()
-            return self._create()
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_PRESET, default=LinkedPreset.XBOX.value): SelectSelector(
-                    SelectSelectorConfig(
-                        options=[preset.value for preset in LinkedPreset],
-                        translation_key="preset",
-                        mode=SelectSelectorMode.LIST,
-                    )
-                ),
-                vol.Required(CONF_SOURCE_ENTITY): EntitySelector(
-                    EntitySelectorConfig(domain=SOURCE_DOMAINS)
-                ),
-                vol.Optional(CONF_NAME): str,
-                vol.Optional(CONF_ON_THRESHOLD, default=5): _watts(),
-            }
-        )
-        return self.async_show_form(step_id="linked", data_schema=schema)
-
 
 class GamingHubOptionsFlow(OptionsFlow):
     """Links to other entities: power sensor, commands, parental block."""
@@ -597,10 +648,6 @@ class GamingHubOptionsFlow(OptionsFlow):
         }
         if entry.data[CONF_KIND] == ConsoleKind.SWITCH:
             fields[vol.Optional(CONF_IMAGE_TEMPLATE)] = str
-        if entry.data[CONF_KIND] == ConsoleKind.NINTENDO:
-            fields[vol.Optional(CONF_PRESENCE_ENTITY)] = EntitySelector(
-                EntitySelectorConfig(domain=SOURCE_DOMAINS)
-            )
         suggested = {CONF_IMAGE_TEMPLATE: DEFAULT_SWITCH_IMAGE_TEMPLATE, **entry.options}
         return self.async_show_form(
             step_id="init",

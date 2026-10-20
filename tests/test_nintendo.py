@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 from datetime import date
 import hashlib
-from typing import Any
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlsplit
 
@@ -233,7 +232,7 @@ async def test_sign_in_then_read(nintendo) -> None:
 # --- In Home Assistant ---------------------------------------------------------
 
 
-def _entry(**options: Any) -> MockConfigEntry:
+def _entry() -> MockConfigEntry:
     return MockConfigEntry(
         domain=DOMAIN,
         title="Switch",
@@ -245,7 +244,6 @@ def _entry(**options: Any) -> MockConfigEntry:
             "model": "Switch 2",
             "name": "Switch",
         },
-        options=options,
     )
 
 
@@ -303,18 +301,16 @@ def account():
 PLAYER = "media_player.switch"
 
 
-async def test_presence_entity_game_and_official_play_time(
+async def test_game_and_official_play_time(
     hass: HomeAssistant, account: Account, freezer: FrozenDateTimeFactory
 ) -> None:
     freezer.move_to("2026-10-21 20:00:00-07:00")  # Wednesday, Home Assistant's time zone
-    hdmi = "sensor.sync_box_hdmi1_status"
-    hass.states.async_set(hdmi, "plugged")
-    entry = _entry(presence_entity=hdmi)
+    entry = _entry()
     await _setup(hass, entry)
 
     device = dr.async_get(hass).async_get_device({(DOMAIN, entry.entry_id)})
     assert (device.manufacturer, device.model) == ("Nintendo", "Switch 2")
-    assert hass.states.get(PLAYER).state == "off"
+    assert hass.states.get(PLAYER).state == "off"  # earlier play is not a current game
     assert hass.states.get("sensor.switch_system_version").state == "21.0.1"
     # Play time counted by Nintendo: today, the week (Monday on) and the month.
     today = hass.states.get("sensor.switch_play_time_today")
@@ -324,47 +320,19 @@ async def test_presence_entity_game_and_official_play_time(
     assert float(hass.states.get("sensor.switch_play_time_this_week").state) == 1.5
     assert float(hass.states.get("sensor.switch_play_time_this_month").state) == 3.5
 
-    # The console is turned on: Nintendo is read at once, then every minute.
-    hass.states.async_set(hdmi, "linked")
-    await _tick(hass, freezer)
-    assert hass.states.get(PLAYER).state == "on"  # nothing new from Nintendo yet
-
-    account.play(ZELDA, None, 5)  # a Switch 2 game, named from the console's list
+    # Minutes added: on, with the game (a Switch 2 one, named from the console's list).
+    account.play(ZELDA, None, 5)
     await _tick(hass, freezer, 61)
     state = hass.states.get(PLAYER)
     assert (state.state, state.attributes["media_title"]) == ("playing", "Zelda")
     assert float(hass.states.get("sensor.switch_play_time_today").state) == 35
 
-    # Off at the TV: no game, even though Zelda's minutes grew a moment ago.
-    hass.states.async_set(hdmi, "plugged")
-    await _tick(hass, freezer)
-    assert hass.states.get(PLAYER).state == "off"
+    # Another game later on.
+    account.play(MARIO_KART, "Mario Kart 8 Deluxe", 2)
     await _tick(hass, freezer, 61)
-    assert hass.states.get(PLAYER).state == "off"
+    assert hass.states.get(PLAYER).attributes["media_title"] == "Mario Kart 8 Deluxe"
 
-    # Still read every minute: minutes added since, so played away from the TV (handheld).
-    account.play(ZELDA, None, 3)
-    await _tick(hass, freezer, 61)
-    state = hass.states.get(PLAYER)
-    assert (state.state, state.attributes["media_title"]) == ("playing", "Zelda")
-    for _ in range(31):
-        await _tick(hass, freezer, 61)
-    assert hass.states.get(PLAYER).state == "off"
-
-
-async def test_without_presence_entity(
-    hass: HomeAssistant, account: Account, freezer: FrozenDateTimeFactory
-) -> None:
-    """On while Nintendo's play time grows, off a while after it stops."""
-    freezer.move_to("2026-10-21 20:00:00-07:00")
-    await _setup(hass, _entry())
-    assert hass.states.get(PLAYER).state == "off"  # earlier play is not a current game
-
-    account.play(MARIO_KART, "Mario Kart 8 Deluxe", 1)
-    await _tick(hass, freezer, 61)
-    state = hass.states.get(PLAYER)
-    assert (state.state, state.attributes["media_title"]) == ("playing", "Mario Kart 8 Deluxe")
-
+    # Nothing added for 30 minutes: off.
     for _ in range(31):
         await _tick(hass, freezer, 61)
     assert hass.states.get(PLAYER).state == "off"
@@ -441,11 +409,10 @@ async def test_add_a_console_from_the_nintendo_account(hass: HomeAssistant) -> N
         patch(f"{CLIENT}.async_devices", AsyncMock(return_value=CONSOLES)),
     ):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {"link": LINK})
-    assert result["step_id"] == "nintendo_console"
+    assert result["step_id"] == "nintendo_console"  # several consoles on the account
     with patch(SETUP, AsyncMock(return_value=True)):
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            {"device_id": DEVICE_ID, "presence_entity": "binary_sensor.switch_ping"},
+            result["flow_id"], {"device_id": DEVICE_ID}
         )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Salon"
@@ -456,7 +423,6 @@ async def test_add_a_console_from_the_nintendo_account(hass: HomeAssistant) -> N
         "model": "Switch 2",
         "name": "Salon",
     }
-    assert result["options"] == {"presence_entity": "binary_sensor.switch_ping"}
     assert result["result"].unique_id == f"nintendo_{DEVICE_ID}"
 
 

@@ -7,9 +7,10 @@
         "menu_options": {
           "ps5": "PlayStation 5",
           "nintendo": "Nintendo Switch ou Switch 2 (compte Nintendo, sans modification)",
+          "steam": "PC ou Steam Deck (compte Steam)",
+          "playstation": "PS4 ou PS3 (compte PlayStation Network)",
           "ps3": "PlayStation 3 modifiée (webMAN MOD)",
           "switch": "Nintendo Switch modifiée (Switch Assistant)",
-          "linked": "Xbox, PS4 ou autre console (intégration existante ou prise)",
           "summary": "Statistiques de toutes les consoles"
         }
       },
@@ -72,16 +73,6 @@
           "name": "Nom"
         }
       },
-      "linked": {
-        "title": "Console déjà présente dans Home Assistant",
-        "description": "Gaming Hub suit une entité existante : le lecteur multimédia Xbox ou PlayStation 4, un lecteur PlayStation Network, le capteur d'un compte Steam (intégration Steam), toute entité qui dit si la console est allumée (entrée HDMI, ping…), le capteur de puissance d'une prise connectée…",
-        "data": {
-          "preset": "Type",
-          "source_entity": "Entité source",
-          "name": "Nom",
-          "on_threshold": "Allumée au-delà de (capteur de puissance uniquement)"
-        }
-      },
       "psn": {
         "title": "Compte PlayStation Network (facultatif)",
         "description": "Donne le jeu en cours avec sa jaquette, le statut en ligne, les trophées et PlayStation Plus, sans autre intégration. Se connecter sur playstation.com, ouvrir {npsso_url} et copier la valeur de « npsso ». Laisser vide pour ignorer.",
@@ -105,17 +96,16 @@
       },
       "nintendo": {
         "title": "Compte Nintendo",
-        "description": "Se connecter avec le compte Nintendo qui gère la console dans l'application Contrôle parental Nintendo Switch (la console doit y être associée). Ouvrir la [connexion Nintendo]({login_url}), se connecter, puis faire un clic droit sur le bouton rouge du compte (appui long sur téléphone), choisir **Copier le lien** et le coller ci-dessous.\n\nNintendo donne les jeux et le temps de jeu, avec un délai, mais ne dit jamais si la console est allumée et ne permet ni de l'allumer ni de l'éteindre.",
+        "description": "Se connecter avec le compte Nintendo qui gère la console dans l'application Contrôle parental Nintendo Switch (la console doit y être associée). Ouvrir la [connexion Nintendo]({login_url}), se connecter, puis faire un clic droit sur le bouton rouge du compte (appui long sur téléphone), choisir **Copier le lien** et le coller ci-dessous.\n\nNintendo donne les jeux et le temps de jeu avec un délai, jamais si la console est allumée, et ne permet ni de l'allumer ni de l'éteindre : le hub considère la console allumée tant que son temps de jeu augmente.",
         "data": {
           "link": "Lien copié"
         }
       },
       "nintendo_console": {
         "title": "Console",
-        "description": "Nintendo ne dit pas quand la console est allumée. N'importe quelle entité qui le sait peut le faire : entrée d'un switch HDMI ou d'une Sync Box, ping ou suivi par le routeur, source de la TV, puissance d'une prise… Sans elle, la console est considérée allumée tant que son temps de jeu augmente (avec le délai de Nintendo).",
+        "description": "Ce compte Nintendo gère plusieurs consoles.",
         "data": {
           "device_id": "Console",
-          "presence_entity": "Allumée quand (facultatif)",
           "name": "Nom"
         }
       },
@@ -124,6 +114,34 @@
         "description": "Nintendo a refusé la session (déconnexion, mot de passe changé…). Ouvrir la [connexion Nintendo]({login_url}), se connecter, puis faire un clic droit sur le bouton rouge du compte (appui long sur téléphone), choisir **Copier le lien** et le coller ci-dessous.",
         "data": {
           "link": "Lien copié"
+        }
+      },
+      "steam": {
+        "title": "Compte Steam",
+        "description": "Gaming Hub lit le statut du compte et le jeu en cours par l'API officielle de Steam, pour un PC, un Steam Deck ou tout ce qui fait tourner Steam.\n\n1. Créer une clé sur [la page des clés Steam]({key_url}), connecté au compte (n'importe quel nom de domaine, par exemple homeassistant.local). Steam peut demander une confirmation dans l'application mobile Steam.\n2. Dans le profil Steam, Paramètres de confidentialité → Détails des jeux : **Public**, sinon le jeu n'est pas transmis.",
+        "data": {
+          "api_key": "Clé d'API Web Steam",
+          "account": "Compte",
+          "name": "Nom"
+        },
+        "data_description": {
+          "account": "Lien du profil (steamcommunity.com/id/… ou /profiles/…), nom de profil personnalisé ou SteamID64."
+        }
+      },
+      "steam_reauth": {
+        "title": "Clé Steam refusée",
+        "description": "Steam refuse la clé d'API Web (révoquée ou remplacée). En créer une nouvelle sur [la page des clés Steam]({key_url}).",
+        "data": {
+          "api_key": "Clé d'API Web Steam"
+        }
+      },
+      "playstation": {
+        "title": "PS4 ou PS3 par le PlayStation Network",
+        "description": "Gaming Hub suit la console par son compte PlayStation Network : allumée tant que le compte y est en ligne, avec le jeu en cours. La console doit se connecter au PlayStation Network au démarrage. Pas d'allumage ni d'extinction.\n\nSe connecter sur playstation.com, ouvrir {npsso_url} et copier la valeur de « npsso ».",
+        "data": {
+          "preset": "Console",
+          "npsso": "Jeton NPSSO",
+          "name": "Nom"
         }
       }
     },
@@ -140,7 +158,10 @@
       "psn_unavailable": "Le PlayStation Network n'a pas répondu, réessayer plus tard.",
       "invalid_link": "Ce lien n'est pas valide ou a déjà servi : rouvrir le lien de connexion.",
       "nintendo_unavailable": "Nintendo n'a pas répondu, réessayer plus tard.",
-      "nintendo_console_missing": "Cette console n'est plus associée à ce compte Nintendo."
+      "nintendo_console_missing": "Cette console n'est plus associée à ce compte Nintendo.",
+      "invalid_api_key": "Steam refuse cette clé.",
+      "steam_account_not_found": "Aucun compte Steam ne correspond : coller le lien du profil.",
+      "steam_unavailable": "Steam n'a pas répondu, réessayer plus tard."
     },
     "abort": {
       "already_configured": "Cette console est déjà configurée.",
@@ -161,16 +182,14 @@
           "turn_on_entity": "Allumer avec",
           "turn_off_entity": "Éteindre avec",
           "block_entity": "Blocage parental avec",
-          "image_template": "URL de la jaquette ({title_id})",
-          "presence_entity": "Allumée quand"
+          "image_template": "URL de la jaquette ({title_id})"
         },
         "data_description": {
           "power_entity": "Une prise connectée en amont de la console : les capteurs Puissance et Énergie n'existent qu'avec elle.",
           "turn_on_entity": "Script, bouton ou interrupteur qui remplace la commande native (par exemple HDMI-CEC via la TV).",
           "turn_off_entity": "Script, bouton ou interrupteur qui remplace la commande native.",
-          "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé, par exemple l'interrupteur de suspension de l'intégration Contrôle parental Nintendo Switch.",
-          "image_template": "Laisser vide pour ne pas afficher de jaquette.",
-          "presence_entity": "N'importe quelle entité qui dit si la console est allumée (entrée HDMI, ping, source TV, puissance d'une prise…)."
+          "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé.",
+          "image_template": "Laisser vide pour ne pas afficher de jaquette."
         }
       },
       "energy": {
@@ -188,14 +207,10 @@
     }
   },
   "selector": {
-    "preset": {
+    "psn_console": {
       "options": {
-        "xbox": "Xbox",
         "ps4": "PlayStation 4",
-        "ps3": "PlayStation 3 (sans modification)",
-        "pc": "PC / Steam Deck",
-        "retro": "Console rétro",
-        "other": "Autre"
+        "ps3": "PlayStation 3"
       }
     }
   },
@@ -385,6 +400,18 @@
       },
       "games": {
         "name": "Jeux en cours"
+      },
+      "steam_status": {
+        "name": "Steam",
+        "state": {
+          "offline": "Hors ligne",
+          "online": "En ligne",
+          "busy": "Occupé",
+          "away": "Absent",
+          "snooze": "Somnolent",
+          "looking_to_trade": "Cherche à échanger",
+          "looking_to_play": "Cherche à jouer"
+        }
       }
     },
     "switch": {
@@ -407,6 +434,9 @@
     },
     "command_failed": {
       "message": "La console n'a pas accepté la commande : {reason}."
+    },
+    "removed_kind": {
+      "message": "Gaming Hub ne suit plus l'entité d'une autre intégration : tout passe par Gaming Hub. Supprimer cette console et l'ajouter à nouveau avec un type pris en charge."
     }
   }
 }

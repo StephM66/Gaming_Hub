@@ -13,11 +13,11 @@ body:
       label: Console
       options:
         - PlayStation 5
-        - PlayStation 3
-        - Nintendo Switch
-        - Xbox
-        - PlayStation 4
-        - Autre console (entité liée)
+        - Nintendo Switch ou Switch 2 (compte Nintendo)
+        - PC ou Steam Deck (compte Steam)
+        - PS4 ou PS3 (compte PlayStation Network)
+        - PlayStation 3 modifiée (webMAN MOD)
+        - Nintendo Switch modifiée (Switch Assistant)
         - Sans rapport avec une console
     validations:
       required: true
