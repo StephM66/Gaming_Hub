@@ -11,6 +11,8 @@ STORAGE_VERSION: Final = 1
 # Config entry of the cross-console statistics (kind of entry, not a console).
 SUMMARY: Final = "summary"
 SIGNAL_CONSOLES_UPDATED: Final = f"{DOMAIN}_consoles_updated"
+# Parental settings of a console, profile or household changed ({} = its unique prefix).
+SIGNAL_PARENTAL_SETTINGS: Final = f"{DOMAIN}_parental_settings_{{}}"
 
 
 class ConsoleKind(StrEnum):

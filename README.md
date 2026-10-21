@@ -58,7 +58,7 @@ Rien d'autre à installer dans Home Assistant : pas d'App, pas de dépendance Py
 hub remplace PS5-MQTT (App) et intègre lui-même les comptes PlayStation Network, Nintendo et
 Steam.
 
-> **État : 0.5.0.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
+> **État : 0.5.1.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
 > PlayStation Network, allumage et mise en repos. Tout le reste n'a été testé que contre des
 > consoles et des services simulés : la Switch par le compte Nintendo, la PS4 et la PS3 par le
 > PSN, Steam, et les pilotes des consoles modifiées. Voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
@@ -226,7 +226,11 @@ les 30 secondes.
 
 - **Jeux d'autres launchers** (GOG, Epic, émulateurs…) : dans Steam, Jeux → « Ajouter un jeu
   non-Steam à ma bibliothèque », puis les lancer depuis Steam. Le hub affiche alors leur titre
-  (sans jaquette : Steam n'en a pas pour ces jeux) et compte leur temps de jeu.
+  (sans jaquette : Steam n'en a pas pour ces jeux) et compte leur temps de jeu. Steam ne suit
+  que le programme qu'il lance : pour un jeu qui passe par un autre launcher (Battle.net…), le
+  raccourci doit viser l'exécutable du jeu, sinon Steam le croit terminé dès que le launcher
+  passe la main. Par exemple pour WoW Classic : `WowClassic.exe` avec l'option de lancement
+  `-launcherlogin`, Battle.net ouvert (option connue de la communauté, pas encore vérifiée ici).
 - **État du PC** : Steam ne sait pas si l'ordinateur est allumé. Un interrupteur ou une autre
   entité qui le sait peut compléter le compte (voir « Compléter une console ») : PC éteint,
   allumé, ou en jeu, et l'allumage et l'extinction par cet interrupteur.
@@ -320,8 +324,8 @@ actions:
 ```
 
 Capteurs : « Temps de jeu aujourd'hui », « Temps de jeu restant », « Contrôle parental »
-(désactivé, autorisé, bientôt écoulé, bloqué). Le temps restant est toujours chiffré : sans
-limite, c'est ce qui reste de la journée.
+(désactivé, autorisé, bientôt écoulé, bloqué). « Temps de jeu restant » n'existe que si une
+limite quotidienne ou une plage horaire est réglée : il apparaît et disparaît avec ces réglages.
 
 ## Consommation
 
@@ -371,7 +375,7 @@ L'appareil « Gaming Hub » se crée tout seul avec la première console. Il ré
 | Temps de jeu cette semaine, ce mois-ci | heures, toutes consoles | heures par console |
 | Consoles allumées | nombre | liste des consoles allumées |
 | Jeux en cours | titres joués en ce moment (« Aucun » sinon) | jeu par console |
-| Contrôle parental, Temps de jeu restant | limite du foyer | |
+| Contrôle parental, Temps de jeu restant | limite du foyer (temps restant seulement si une limite ou une plage est réglée) | |
 
 Et les réglages du contrôle parental du foyer.
 

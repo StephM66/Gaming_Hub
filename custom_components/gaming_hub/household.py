@@ -23,7 +23,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
@@ -36,6 +36,7 @@ from .const import (
     DOMAIN,
     EVENT_PARENTAL,
     SIGNAL_CONSOLES_UPDATED,
+    SIGNAL_PARENTAL_SETTINGS,
     STORAGE_VERSION,
     SUBENTRY_PROFILE,
     SUMMARY,
@@ -167,6 +168,7 @@ class ParentalOwner(DataUpdateCoordinator[OwnerData]):
             setattr(self.parental.settings, key, value)
         self.hub.save()
         self.hub.refresh()
+        async_dispatcher_send(self.hass, SIGNAL_PARENTAL_SETTINGS.format(self.unique_prefix))
 
 
 class GamingHub:

@@ -48,6 +48,11 @@ class ParentalSettings:
     action: ParentalAction = ParentalAction.TURN_OFF
     warning: int = 5  # minutes of notice before the limit
 
+    @property
+    def has_limit(self) -> bool:
+        """A daily limit or allowed hours are set (the remaining play time means something)."""
+        return self.daily_limit > 0 or bool(self.start and self.end and self.start != self.end)
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
@@ -76,8 +81,8 @@ class ParentalSettings:
 class ParentalDecision:
     status: ParentalStatus
     reason: BlockReason | None = None
-    # Minutes of play still allowed today: before the limit or the end of the allowed hours,
-    # else until midnight. Also given while parental control is off (for information).
+    # Minutes of play still allowed: before the daily limit or the end of the allowed hours
+    # (until midnight when neither is set). Also given while parental control is off.
     remaining: float = 0.0
     notice: Notice | None = None  # message to deliver now
     enforce: bool = False  # power the console off now
@@ -115,16 +120,16 @@ class ParentalController:
         self._enforced_at: datetime | None = None
 
     def _remaining(self, now: datetime, playtime: float) -> tuple[float, BlockReason | None]:
-        """Seconds of play left and what limits them (None: nothing before midnight)."""
+        """Seconds of play left and what limits them (None: no limit, until midnight)."""
         settings = self.settings
-        limits: list[tuple[float, BlockReason | None]] = [(until_midnight(now), None)]
+        limits: list[tuple[float, BlockReason | None]] = []
         if settings.daily_limit > 0:
             limits.append((settings.daily_limit * 60 - playtime, BlockReason.LIMIT))
         if settings.start and settings.end and settings.start != settings.end:
             limits.append(
                 (schedule_remaining(now, settings.start, settings.end), BlockReason.SCHEDULE)
             )
-        return min(limits, key=lambda item: item[0])
+        return min(limits, key=lambda item: item[0]) if limits else (until_midnight(now), None)
 
     def _clear_block(self) -> None:
         self._blocked_since = self._deadline = self._enforced_at = None

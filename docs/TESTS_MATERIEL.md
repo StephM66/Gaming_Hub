@@ -120,7 +120,8 @@ essais 3 et 4 le mesurent. S'il est long, le jeu en cours affiché arrive en ret
 | 3 | Jouer sur chaque console rattachée | temps attribué au profil (attributs : part de chaque console) |
 | 4 | Limite du foyer atteinte | message et arrêt sur les consoles en jeu ; événement `scope: household` |
 | 5 | Limite d'un profil atteinte | message et arrêt sur la console où l'enfant joue ; événement `scope: profile` |
-| 6 | Sans jeu en cours | « Jeu en cours » = « Aucun », « Temps de jeu restant » chiffré (jamais inconnu) |
+| 6 | Sans jeu en cours | « Jeu en cours » = « Aucun » (jamais inconnu) |
+| 7 | Aucune limite ni plage horaire | pas de « Temps de jeu restant » ; il apparaît dès qu'une limite est réglée, disparaît quand on la retire |
 
 ## Compléter une console (0.5.0)
 
