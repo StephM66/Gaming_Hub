@@ -27,7 +27,7 @@ allumage ou extinction quand la console le permet.
 | PlayStation 5 | réseau local, compte PSN facultatif | ✅ allumage, mode repos | ✅ | ✅ via le compte PSN | mesuré par le hub | ✅ |
 | Nintendo Switch, Switch 2 | compte Nintendo (celui de l'application Contrôle parental) | ❌ Nintendo ne le permet pas | déduit : allumée tant que son temps de jeu augmente, avec le délai de Nintendo | déduit des minutes ajoutées par Nintendo | compté par Nintendo (jour, semaine, mois ; par jeu et par joueur) | pas encore (API Nintendo simulée) |
 | PlayStation 4, PlayStation 3 | compte PlayStation Network | ❌ | allumée tant que le compte y est en ligne | ✅ via le compte PSN | mesuré par le hub | pas encore |
-| PC, Steam Deck | compte Steam (clé d'API Steam) | ❌ | en jeu ; Steam ouvert sans jeu = veille | ✅ titre et jaquette | temps passé en jeu, mesuré par le hub | pas encore |
+| PC, Steam Deck | compte Steam (clé d'API Steam) | ❌ | en jeu ; Steam ouvert sans jeu = veille | ✅ titre et jaquette (jeux Steam seulement) | temps passé en jeu, mesuré par le hub | ✅ jeu Steam sur PC |
 
 Ce qu'une console ne sait pas faire d'elle-même peut être **complété par une de vos entités**
 (options de la console) : l'état, l'allumage, l'extinction, le redémarrage. Par exemple
@@ -59,9 +59,10 @@ hub remplace PS5-MQTT (App) et intègre lui-même les comptes PlayStation Networ
 Steam.
 
 > **État : 0.5.1.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
-> PlayStation Network, allumage et mise en repos. Tout le reste n'a été testé que contre des
-> consoles et des services simulés : la Switch par le compte Nintendo, la PS4 et la PS3 par le
-> PSN, Steam, et les pilotes des consoles modifiées. Voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
+> PlayStation Network, allumage et mise en repos. Steam validé avec un vrai compte : un jeu
+> Steam lancé sur le PC apparaît aussitôt. Tout le reste n'a été testé que contre des consoles
+> et des services simulés : la Switch par le compte Nintendo, la PS4 et la PS3 par le PSN, et
+> les pilotes des consoles modifiées. Voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
 > Pour la PS5, les protocoles sont aussi vérifiés octet par octet contre playactor.
 
 ## Avertissement
@@ -224,16 +225,9 @@ Ce que le hub en tire : en jeu, le titre et la jaquette ; Steam ouvert sans jeu,
 Steam fermé, éteint. Le temps de jeu ne compte que le temps passé en jeu. Le compte est lu toutes
 les 30 secondes.
 
-- **Jeux d'autres launchers** (GOG, Epic, émulateurs…) : dans Steam, Jeux → « Ajouter un jeu
-  non-Steam à ma bibliothèque », puis les lancer depuis Steam. Le hub affiche alors leur titre
-  (sans jaquette : Steam n'en a pas pour ces jeux) et compte leur temps de jeu. Steam ne suit
-  que le programme qu'il lance : un jeu qui se lance par un autre launcher reste invisible dès
-  que ce launcher passe la main. C'est le cas des jeux **Battle.net** (World of Warcraft, Classic
-  compris) : essayé, ni le raccourci vers Battle.net ni celui vers l'exécutable du jeu ne
-  fonctionnent. L'outil communautaire [bnetlauncher](https://github.com/tsukasa/bnetlauncher)
-  est fait pour ça : ajouté à Steam avec le code du jeu (`wow`, `wowclassic`, `wowclassicera`
-  pour Classic Era et Hardcore…), il lance le jeu par Battle.net pour que Steam le suive. Pas
-  encore essayé ici ; pour WoW Classic, il faut parfois cliquer soi-même sur « Jouer ».
+- **Seulement les jeux Steam** : un jeu non-Steam ajouté à la bibliothèque Steam (GOG, Epic,
+  Battle.net, émulateurs…) n'est pas visible. Steam ne le publie plus dans le statut « en jeu »
+  (vérifié : seul « En ligne » apparaît), quel que soit le raccourci ou le launcher.
 - **État du PC** : Steam ne sait pas si l'ordinateur est allumé. Un interrupteur ou une autre
   entité qui le sait peut compléter le compte (voir « Compléter une console ») : PC éteint,
   allumé, ou en jeu, et l'allumage et l'extinction par cet interrupteur.
