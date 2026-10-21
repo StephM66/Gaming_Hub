@@ -21,6 +21,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -40,6 +41,7 @@ from .const import (
     DEVICE_INFO,
     DOMAIN,
     EVENT_PARENTAL,
+    SIGNAL_PARENTAL_SETTINGS,
     STORAGE_VERSION,
     ConsoleKind,
     texts,
@@ -441,6 +443,7 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             setattr(self.parental.settings, key, value)
         self._schedule_save(dt_util.now(), soon=True)
         await self.async_refresh()
+        async_dispatcher_send(self.hass, SIGNAL_PARENTAL_SETTINGS.format(self.unique_prefix))
 
     def message(self, decision: ParentalDecision, who: str | None = None) -> str:
         """Text for this console; ``who`` names a profile or the household it applies to."""

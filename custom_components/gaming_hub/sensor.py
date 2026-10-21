@@ -24,11 +24,13 @@ from homeassistant.const import (
     UnitOfTemperature,
     UnitOfTime,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import CONF_KIND, SUMMARY, texts
+from .const import CONF_KIND, DOMAIN, SIGNAL_PARENTAL_SETTINGS, SUMMARY, texts
 from .coordinator import ConsoleData, GamingHubConfigEntry, GamingHubCoordinator
 from .entity import GamingHubEntity
 from .household import GamingHub, OwnerData, ParentalOwner
@@ -334,29 +336,85 @@ async def async_setup_entry(
     if entry.data.get(CONF_KIND) == SUMMARY:
         hub: GamingHub = entry.runtime_data
         assert hub.household is not None
-        async_add_entities(
-            [
-                *(SummarySensor(entry, description) for description in SUMMARY_SENSORS),
-                *(OwnerSensor(hub.household, d) for d in OWNER_SENSORS if not d.profile_only),
-            ]
-        )
-        for subentry_id, owner in hub.profiles.items():
+        owners = [(hub.household, None), *((o, sid) for sid, o in hub.profiles.items())]
+        async_add_entities(SummarySensor(entry, description) for description in SUMMARY_SENSORS)
+        for owner, subentry_id in owners:
             async_add_entities(
-                [OwnerSensor(owner, description) for description in OWNER_SENSORS],
+                [
+                    OwnerSensor(owner, description)
+                    for description in OWNER_SENSORS
+                    if description.key != REMAINING
+                    and (subentry_id is not None or not description.profile_only)
+                ],
                 config_subentry_id=subentry_id,
+            )
+            _remaining_while_limited(
+                hass,
+                entry,
+                owner,
+                lambda owner=owner: OwnerSensor(owner, OWNER_REMAINING),
+                async_add_entities,
+                subentry_id,
             )
         return
     coordinator = entry.runtime_data
-    descriptions = [d for d in HUB_SENSORS if d.exists_fn(coordinator)]
+    descriptions = [d for d in HUB_SENSORS if d.exists_fn(coordinator) and d.key != REMAINING]
     descriptions += [DRIVER_SENSORS[key] for key in coordinator.sensor_keys]
     entities = [HubSensor(coordinator, description) for description in descriptions]
     # Sensors no longer provided (power and energy once the plug is unlinked) are removed.
     registry = er.async_get(hass)
     wanted = {entity.unique_id for entity in entities}
+    if coordinator.parental.settings.has_limit:
+        wanted.add(f"{coordinator.unique_prefix}_{REMAINING}")
     for stale in er.async_entries_for_config_entry(registry, entry.entry_id):
         if stale.domain == Platform.SENSOR and stale.unique_id not in wanted:
             registry.async_remove(stale.entity_id)
     async_add_entities(entities)
+    _remaining_while_limited(
+        hass,
+        entry,
+        coordinator,
+        lambda: HubSensor(coordinator, CONSOLE_REMAINING),
+        async_add_entities,
+    )
+
+
+REMAINING = "parental_remaining"
+
+
+def _remaining_while_limited(
+    hass: HomeAssistant,
+    entry: GamingHubConfigEntry,
+    owner: Any,
+    make: Callable[[], Entity],
+    async_add_entities: AddConfigEntryEntitiesCallback,
+    subentry_id: str | None = None,
+) -> None:
+    """The play time left only exists while a daily limit or allowed hours are set.
+
+    Added and removed as the parental settings of ``owner`` (console, profile or household)
+    change, so it never counts down to midnight for nothing.
+    """
+    registry = er.async_get(hass)
+    unique_id = f"{owner.unique_prefix}_{REMAINING}"
+    added = False
+
+    @callback
+    def follow() -> None:
+        nonlocal added
+        if owner.parental.settings.has_limit:
+            if not added:
+                added = True
+                async_add_entities([make()], config_subentry_id=subentry_id)
+            return
+        added = False
+        if entity_id := registry.async_get_entity_id(Platform.SENSOR, DOMAIN, unique_id):
+            registry.async_remove(entity_id)
+
+    follow()
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, SIGNAL_PARENTAL_SETTINGS.format(owner.unique_prefix), follow)
+    )
 
 
 class HubSensor(GamingHubEntity, SensorEntity):
@@ -472,3 +530,7 @@ class OwnerSensor(GamingHubEntity[ParentalOwner], SensorEntity):
     def last_reset(self) -> datetime | None:
         reset = self.entity_description.last_reset_fn
         return reset() if reset else None
+
+
+CONSOLE_REMAINING = next(d for d in HUB_SENSORS if d.key == REMAINING)
+OWNER_REMAINING = next(d for d in OWNER_SENSORS if d.key == REMAINING)

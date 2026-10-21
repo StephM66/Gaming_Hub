@@ -106,8 +106,8 @@ async def test_profile_and_household_limit(
         assert (today.attributes["PS5 Salon"], today.attributes["PC"]) == (30, 30)
         assert hass.states.get("sensor.lea_playing_on").state == "PS5 Salon, Halo Infinite"
         assert hass.states.get("sensor.lea_parental_control").state == "disabled"
-        # No limit for Léa: what is left of the day (12:30 → midnight).
-        assert float(hass.states.get("sensor.lea_play_time_left").state) == 690
+        # No limit for Léa: no "play time left" counting down for nothing.
+        assert hass.states.get("sensor.lea_play_time_left") is None
 
         # A household limit of 30 minutes, already used: every console playing is concerned.
         events = async_capture_events(hass, EVENT_PARENTAL)
@@ -125,6 +125,7 @@ async def test_profile_and_household_limit(
         )
         await hass.async_block_till_done()
         assert hass.states.get("sensor.gaming_hub_parental_control").state == "blocked"
+        assert float(hass.states.get("sensor.gaming_hub_play_time_left").state) == 0
         household = [e.data for e in events if e.data.get("scope") == "household"]
         assert household[0]["type"] == "blocked"
         assert household[0]["consoles"] == ["PS5 Salon", "PC"]

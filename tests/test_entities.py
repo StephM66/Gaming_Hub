@@ -466,3 +466,50 @@ async def test_power_sensor_in_kilowatts(hass: HomeAssistant, mock_ddp, ps5_entr
     hass.config_entries.async_update_entry(ps5_entry, options={"power_entity": "sensor.prise_ps5"})
     await _setup(hass, ps5_entry)
     assert hass.states.get("sensor.ps5_salon_power").state == "200.0"
+
+
+async def test_play_time_left_only_with_a_limit(
+    hass: HomeAssistant, mock_ddp, ps5_entry, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to("2026-10-21 12:00:00-07:00")
+    await _setup(hass, ps5_entry)
+    left = "sensor.ps5_salon_play_time_left"
+    assert hass.states.get(left) is None  # nothing set: nothing to count down
+
+    await hass.services.async_call(
+        "number",
+        "set_value",
+        {ATTR_ENTITY_ID: "number.ps5_salon_daily_play_time", "value": 60},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert float(hass.states.get(left).state) == 60  # shown even with the control off
+
+    await hass.services.async_call(
+        "number",
+        "set_value",
+        {ATTR_ENTITY_ID: "number.ps5_salon_daily_play_time", "value": 0},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(left) is None
+    assert er.async_get(hass).async_get(left) is None
+
+    # Allowed hours count too; the sensor stays across a restart of the entry.
+    await hass.services.async_call(
+        "time",
+        "set_value",
+        {ATTR_ENTITY_ID: "time.ps5_salon_play_allowed_from", "time": "09:00:00"},
+        blocking=True,
+    )
+    await hass.services.async_call(
+        "time",
+        "set_value",
+        {ATTR_ENTITY_ID: "time.ps5_salon_play_allowed_until", "time": "20:00:00"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert float(hass.states.get(left).state) == 8 * 60
+    await hass.config_entries.async_reload(ps5_entry.entry_id)
+    await hass.async_block_till_done()
+    assert float(hass.states.get(left).state) == 8 * 60
