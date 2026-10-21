@@ -1,4 +1,9 @@
-"""One coordinator per console: driver state + linked entities + usage + parental control."""
+"""One coordinator per console: driver state + PSN account + usage + parental control.
+
+Entities chosen in the "Complete" options fill in what the console cannot do itself (state,
+turning on and off, restart). Play time is also counted per identity (the console's account
+or the console itself) for the profiles of the "Gaming Hub" entry.
+"""
 
 from __future__ import annotations
 
@@ -9,12 +14,13 @@ import logging
 import time
 from typing import Any
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_UNIT_OF_MEASUREMENT, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.debounce import Debouncer
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -27,18 +33,20 @@ from .const import (
     CONF_NPSSO,
     CONF_POWER_ENTITY,
     CONF_PRESET,
+    CONF_RESTART_ENTITY,
+    CONF_STATE_ENTITY,
     CONF_TURN_OFF_ENTITY,
     CONF_TURN_ON_ENTITY,
     DEVICE_INFO,
     DOMAIN,
     EVENT_PARENTAL,
-    MESSAGES,
     STORAGE_VERSION,
     ConsoleKind,
+    texts,
 )
 from .drivers import ConsoleDriver
 from .drivers.base import unsupported
-from .models import ConsoleSnapshot, PowerState
+from .models import ACCOUNT, CONSOLE, ConsoleSnapshot, Periods, PowerState
 from .parental import (
     BlockReason,
     Notice,
@@ -46,6 +54,7 @@ from .parental import (
     ParentalDecision,
     ParentalSettings,
 )
+from .presence import is_present
 from .protocols.psn import PsnAuthError, PsnClient, PsnError, PsnStatus
 from .usage import UsageTracker
 
@@ -56,6 +65,8 @@ SAVE_INTERVAL = timedelta(minutes=5)
 PSN_INTERVAL_ON = 60
 PSN_INTERVAL_OFF = 15 * 60
 PSN_SENSORS = ("psn_status", "trophy_level")
+# Entities that turn the console on and off when chosen as its state.
+SWITCHABLE = ("switch", "input_boolean", "light", "fan")
 
 type GamingHubConfigEntry = ConfigEntry[GamingHubCoordinator]
 
@@ -69,6 +80,9 @@ class ConsoleData:
     playtime_week: float  # seconds this week (Monday to Sunday)
     playtime_month: float  # seconds this month
     parental: ParentalDecision
+    # Play time per identity (models.ACCOUNT, models.CONSOLE, Switch players) and who plays.
+    playtime_by: dict[str, Periods]
+    playing_as: tuple[str, ...]
 
 
 def profile_key(data: dict[str, Any]) -> str:
@@ -105,6 +119,8 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self.manufacturer, self.model = DEVICE_INFO[key]
         self.model = entry.data.get(CONF_MODEL) or self.model
         self.usage = UsageTracker()
+        # Play time of the console's account and of anyone else, for the profiles.
+        self.usage_by: dict[str, UsageTracker] = {}
         self.parental = ParentalController(ParentalSettings())
         self._store: Store[dict[str, Any]] = Store(
             hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}"
@@ -121,6 +137,25 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self.psn_reauth = False
 
     @property
+    def unique_prefix(self) -> str:
+        return self.config_entry.entry_id
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.config_entry.entry_id)},
+            name=self.config_entry.title,
+            manufacturer=self.manufacturer,
+            model=self.model,
+            configuration_url=self.driver.configuration_url,
+        )
+
+    @property
+    def has_account(self) -> bool:
+        """The console's play can be told apart as its account's (Steam, PSN)."""
+        return self.driver.account_console or self.psn is not None
+
+    @property
     def sensor_keys(self) -> tuple[str, ...]:
         """Console-specific sensors (driver values, PlayStation Network account)."""
         return self.driver.sensors + (PSN_SENSORS if self.psn else ())
@@ -135,6 +170,10 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         """Restore stored usage, subscribe to pushes and linked entities."""
         stored = await self._store.async_load() or {}
         self.usage = UsageTracker.from_dict(stored.get("usage"))
+        self.usage_by = {
+            identity: UsageTracker.from_dict(data)
+            for identity, data in (stored.get("usage_by") or {}).items()
+        }
         self.parental.settings = ParentalSettings.from_dict(stored.get("parental"))
         consumption = stored.get("consumption") or {}
         self.energy_taken_over = consumption.get("taken_over")
@@ -151,9 +190,11 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             )
 
         await self.driver.async_start(on_change)
-        if power_entity := self.options.get(CONF_POWER_ENTITY):
+        if watched := [
+            entity for entity in (self.options.get(CONF_POWER_ENTITY), self._state_entity) if entity
+        ]:
             self.config_entry.async_on_unload(
-                async_track_state_change_event(self.hass, [power_entity], on_change)
+                async_track_state_change_event(self.hass, watched, on_change)
             )
 
     async def async_stop(self) -> None:
@@ -163,6 +204,7 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
     def _stored(self) -> dict[str, Any]:
         data = {
             "usage": self.usage.as_dict(),
+            "usage_by": {identity: usage.as_dict() for identity, usage in self.usage_by.items()},
             "parental": self.parental.settings.as_dict(),
             "consumption": {"taken_over": self.energy_taken_over, "hidden": self.hidden_entities},
         }
@@ -197,15 +239,23 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         now = dt_util.now()
         await self._async_update_psn(snapshot.is_on, now)
         self._merge_psn(snapshot)
+        self._complete_state(snapshot)
         power = self._power()
-        self.usage.update(now, snapshot.is_on, power)
+        # Play time: while on, or only while in a game for a computer (Steam).
+        counting = snapshot.playing if self.driver.counts_game_time_only else snapshot.is_on
+        self.usage.update(now, counting, power)
+        identity = self._identity()
+        for key in (ACCOUNT, CONSOLE) if self.has_account else (CONSOLE,):
+            self.usage_by.setdefault(key, UsageTracker()).update(
+                now, counting and identity == key, None
+            )
         # The maker's own count when the driver has it (Nintendo account), else the hub's.
-        playtime, week, month = snapshot.playtime or (
-            self.usage.playtime,
-            self.usage.week_playtime,
-            self.usage.month_playtime,
-        )
-        decision = self.parental.evaluate(now, snapshot.is_on, playtime)
+        playtime, week, month = snapshot.playtime or _periods(self.usage)
+        playtime_by = snapshot.playtime_by or {
+            key: _periods(usage) for key, usage in self.usage_by.items()
+        }
+        playing_as = (snapshot.playing_as or (identity,)) if counting else ()
+        decision = self.parental.evaluate(now, counting, playtime)
         self._schedule_save(now)
         if decision.notice or decision.enforce:
             self.config_entry.async_create_background_task(
@@ -219,7 +269,32 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             playtime_week=week,
             playtime_month=month,
             parental=decision,
+            playtime_by=playtime_by,
+            playing_as=tuple(playing_as),
         )
+
+    def _identity(self) -> str:
+        """Who plays now: the console's account when it says so, else nobody in particular."""
+        if self.driver.account_console:
+            return ACCOUNT
+        status = self.psn_status
+        session = status.sessions.get(self.psn_platform or "") if status else None
+        return ACCOUNT if session and session.online else CONSOLE
+
+    @property
+    def _state_entity(self) -> str | None:
+        """Entity telling the state, for a console that cannot tell it itself."""
+        return None if self.driver.native_state else self.options.get(CONF_STATE_ENTITY)
+
+    def _complete_state(self, snapshot: ConsoleSnapshot) -> None:
+        """The chosen entity decides on or off; the console or its account gives the game."""
+        if not (entity := self._state_entity):
+            return
+        present = is_present(self.hass.states.get(entity))
+        if present is True and not snapshot.is_on:
+            snapshot.power = PowerState.ON
+        elif present is False:
+            snapshot.power = PowerState.OFF
 
     async def _async_update_psn(self, console_on: bool, now: datetime) -> None:
         """Poll the PlayStation Network account, more often while the console is on."""
@@ -286,12 +361,29 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
     # --- Commands -----------------------------------------------------------
 
     @property
+    def _power_switch(self) -> str | None:
+        """The state entity when it can also turn the console on and off (a switch)."""
+        entity = self._state_entity
+        return entity if entity and entity.split(".", 1)[0] in SWITCHABLE else None
+
+    @property
     def can_turn_on(self) -> bool:
-        return bool(self.options.get(CONF_TURN_ON_ENTITY)) or self.driver.can_turn_on
+        return bool(
+            self.options.get(CONF_TURN_ON_ENTITY) or self.driver.can_turn_on or self._power_switch
+        )
 
     @property
     def can_turn_off(self) -> bool:
-        return bool(self.options.get(CONF_TURN_OFF_ENTITY)) or self.driver.can_turn_off
+        return bool(
+            self.options.get(CONF_TURN_OFF_ENTITY) or self.driver.can_turn_off or self._power_switch
+        )
+
+    @property
+    def button_keys(self) -> tuple[str, ...]:
+        """The console's buttons, and restart when an entity does it for the console."""
+        if "restart" not in self.driver.buttons and self.options.get(CONF_RESTART_ENTITY):
+            return (*self.driver.buttons, "restart")
+        return self.driver.buttons
 
     async def _async_activate(self, entity_id: str, *, turn_on: bool = True) -> None:
         """Run a script/scene, press a button or switch an entity."""
@@ -311,6 +403,8 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             await self._async_activate(entity)
         elif self.driver.can_turn_on:
             await self.driver.async_turn_on()
+        elif entity := self._power_switch:
+            await self._async_activate(entity)
         else:
             raise unsupported("turn_on")
         await self.async_request_refresh()
@@ -320,13 +414,17 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             await self._async_activate(entity, turn_on=False)
         elif self.driver.can_turn_off:
             await self.driver.async_turn_off()
+        elif entity := self._power_switch:
+            await self._async_activate(entity, turn_on=False)
         else:
             raise unsupported("turn_off")
         await self.async_request_refresh()
 
     async def async_press(self, button: str) -> None:
         """Restart or quit the game (see ``ConsoleDriver.buttons``)."""
-        if button == "restart":
+        if button == "restart" and "restart" not in self.driver.buttons:
+            await self._async_activate(self.options[CONF_RESTART_ENTITY])
+        elif button == "restart":
             await self.driver.async_restart()
         else:
             await self.driver.async_quit_game()
@@ -344,15 +442,19 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
         self._schedule_save(dt_util.now(), soon=True)
         await self.async_refresh()
 
-    def message(self, decision: ParentalDecision) -> str:
-        texts = MESSAGES["fr" if self.hass.config.language.startswith("fr") else "en"]
+    def message(self, decision: ParentalDecision, who: str | None = None) -> str:
+        """Text for this console; ``who`` names a profile or the household it applies to."""
+        words = texts(self.hass.config.language)
         console = self.config_entry.title
+        suffix = "_for" if who else ""
         if decision.notice is Notice.WARNING:
-            return texts["warning"].format(minutes=round(decision.remaining or 0), console=console)
+            return words[f"warning{suffix}"].format(
+                minutes=round(decision.remaining), console=console, who=who
+            )
         key = "blocked_schedule" if decision.reason is BlockReason.SCHEDULE else "blocked_limit"
-        text = texts[key].format(console=console)
+        text = words[f"{key}{suffix}"].format(console=console, who=who)
         if decision.enforce:
-            text = f"{text} {texts['turning_off'].format(console=console)}"
+            text = f"{text} {words['turning_off'].format(console=console)}"
         return text
 
     async def _async_apply(self, decision: ParentalDecision) -> None:
@@ -362,12 +464,17 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
             {
                 "entry_id": self.config_entry.entry_id,
                 "console": self.config_entry.title,
+                "scope": "console",
                 "type": "enforced" if decision.enforce else str(decision.notice),
                 "reason": decision.reason and str(decision.reason),
                 "remaining": decision.remaining,
                 "message": message,
             },
         )
+        await self.async_carry_out(decision, message)
+
+    async def async_carry_out(self, decision: ParentalDecision, message: str) -> None:
+        """Show the message on the console, and stop play when the decision enforces it."""
         if decision.notice and self.driver.can_notify:
             try:
                 await self.driver.async_notify(message, "Gaming Hub")
@@ -382,3 +489,21 @@ class GamingHubCoordinator(DataUpdateCoordinator[ConsoleData]):
                 await self.async_turn_off()
         except HomeAssistantError as err:
             _LOGGER.warning("Parental control could not stop %s: %s", self.config_entry.title, err)
+
+
+def _periods(usage: UsageTracker) -> Periods:
+    return usage.playtime, usage.week_playtime, usage.month_playtime
+
+
+def running_consoles(hass: HomeAssistant) -> list[GamingHubCoordinator]:
+    """Coordinators of the consoles running (or finishing their setup), with data."""
+    consoles = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        coordinator = getattr(entry, "runtime_data", None)
+        if (
+            isinstance(coordinator, GamingHubCoordinator)
+            and entry.state in (ConfigEntryState.LOADED, ConfigEntryState.SETUP_IN_PROGRESS)
+            and coordinator.data is not None
+        ):
+            consoles.append(coordinator)
+    return consoles

@@ -75,7 +75,12 @@ def test_disabled_and_unlimited() -> None:
     assert controller.evaluate(at(14), True, 10**6).status is ParentalStatus.DISABLED
     controller.settings.enabled = True
     decision = controller.evaluate(at(14), True, 10**6)
-    assert (decision.status, decision.remaining) == (ParentalStatus.ALLOWED, None)
+    # No limit: play is allowed until midnight (never "unknown").
+    assert (decision.status, decision.reason, decision.remaining) == (
+        ParentalStatus.ALLOWED,
+        None,
+        600,
+    )
 
 
 def test_daily_limit_warns_once_then_turns_off() -> None:

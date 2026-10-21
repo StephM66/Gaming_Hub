@@ -7,8 +7,9 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .coordinator import GamingHubConfigEntry, GamingHubCoordinator
+from .coordinator import GamingHubConfigEntry
 from .entity import GamingHubEntity
+from .household import parental_owners
 from .parental import ParentalAction
 
 PARALLEL_UPDATES = 0
@@ -19,13 +20,14 @@ async def async_setup_entry(
     entry: GamingHubConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    async_add_entities([ParentalActionSelect(entry.runtime_data)])
+    for owner, subentry_id in parental_owners(entry):
+        async_add_entities([ParentalActionSelect(owner)], config_subentry_id=subentry_id)
 
 
 class ParentalActionSelect(GamingHubEntity, SelectEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: GamingHubCoordinator) -> None:
+    def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "parental_action")
         self._attr_options = [action.value for action in ParentalAction]
 

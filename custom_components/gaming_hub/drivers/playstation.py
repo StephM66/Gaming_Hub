@@ -16,6 +16,7 @@ from .base import ConsoleDriver
 class PlayStationAccountDriver(ConsoleDriver):
     update_interval = timedelta(seconds=60)
     power_from_psn = True
+    native_state = False  # the account only knows when it is online on the console
 
     async def async_fetch(self) -> ConsoleSnapshot:
         return ConsoleSnapshot()  # off until the account says otherwise

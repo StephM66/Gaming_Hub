@@ -264,12 +264,14 @@ class Account:
         ]
         self.calls = 0
 
-    def play(self, title_id: str, title: str | None, minutes: float) -> None:
+    def play(self, title_id: str, title: str | None, minutes: float, player: str = "Lea") -> None:
         today = self.days[0]
         games = dict(today.games)
         before = games[title_id].minutes if title_id in games else 0
         games[title_id] = GameTime(title_id, title, None, before + minutes)
-        self.days[0] = PlayDay(today.day, today.minutes + minutes, games, today.players)
+        players = dict(today.players)
+        players[player] = players.get(player, 0) + minutes
+        self.days[0] = PlayDay(today.day, today.minutes + minutes, games, players)
 
     async def play_days(self, device_id: str) -> list[PlayDay]:
         assert device_id == DEVICE_ID
@@ -336,6 +338,27 @@ async def test_game_and_official_play_time(
     for _ in range(31):
         await _tick(hass, freezer, 61)
     assert hass.states.get(PLAYER).state == "off"
+
+
+async def test_play_time_and_play_per_player(
+    hass: HomeAssistant, account: Account, freezer: FrozenDateTimeFactory
+) -> None:
+    """Each Switch user's official minutes, and who plays now, for the profiles."""
+    freezer.move_to("2026-10-21 20:00:00-07:00")
+    entry = _entry()
+    await _setup(hass, entry)
+    data = entry.runtime_data.data
+    assert data.playtime_by["player:Lea"] == (30 * 60, 30 * 60, 30 * 60)
+    # Minutes no player accounts for (earlier days of the fixture) go to the console.
+    assert data.playtime_by["console"] == (0, 60 * 60, 180 * 60)
+    assert data.playing_as == ()
+    assert entry.runtime_data.driver.players == ["Lea"]
+
+    account.play(MARIO_KART, "Mario Kart 8 Deluxe", 4, player="Tom")
+    await _tick(hass, freezer, 61)
+    data = entry.runtime_data.data
+    assert data.playing_as == ("player:Tom",)
+    assert data.playtime_by["player:Tom"][0] == 4 * 60
 
 
 async def test_today_not_reported_yet(

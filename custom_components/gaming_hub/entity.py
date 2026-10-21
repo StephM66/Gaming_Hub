@@ -1,26 +1,21 @@
-"""Base entity: one device per console."""
+"""Base entity: one device per console, profile or household (the coordinator's)."""
 
 from __future__ import annotations
 
-from homeassistant.helpers.device_registry import DeviceInfo
+from typing import Any
+
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
 from .coordinator import GamingHubCoordinator
 
 
-class GamingHubEntity(CoordinatorEntity[GamingHubCoordinator]):
+class GamingHubEntity[CoordinatorT: Any = GamingHubCoordinator](CoordinatorEntity[CoordinatorT]):
+    """``coordinator`` gives ``unique_prefix`` and ``device_info``."""
+
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: GamingHubCoordinator, key: str) -> None:
+    def __init__(self, coordinator: CoordinatorT, key: str) -> None:
         super().__init__(coordinator)
-        entry = coordinator.config_entry
-        self._attr_unique_id = f"{entry.entry_id}_{key}"
+        self._attr_unique_id = f"{coordinator.unique_prefix}_{key}"
         self._attr_translation_key = key
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=entry.title,
-            manufacturer=coordinator.manufacturer,
-            model=coordinator.model,
-            configuration_url=coordinator.driver.configuration_url,
-        )
+        self._attr_device_info = coordinator.device_info

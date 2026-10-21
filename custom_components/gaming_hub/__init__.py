@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import partial
 import logging
 
+from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
@@ -14,6 +15,7 @@ from . import consumption
 from .const import CONF_KIND, DOMAIN, REMOVED_KINDS, SIGNAL_CONSOLES_UPDATED, SUMMARY
 from .coordinator import GamingHubConfigEntry, GamingHubCoordinator
 from .drivers import create_driver
+from .household import GamingHub
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,8 +31,14 @@ PLATFORMS = [
     Platform.TIME,
 ]
 
-# The cross-console statistics only have sensors.
-SUMMARY_PLATFORMS = [Platform.SENSOR]
+# The "Gaming Hub" entry: statistics, household and profiles (parental settings).
+SUMMARY_PLATFORMS = [
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.SWITCH,
+    Platform.TIME,
+]
 
 
 def _platforms(coordinator: GamingHubCoordinator) -> list[Platform]:
@@ -40,7 +48,12 @@ def _platforms(coordinator: GamingHubCoordinator) -> list[Platform]:
 
 async def async_setup_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) -> bool:
     if entry.data.get(CONF_KIND) == SUMMARY:
+        hub = GamingHub(hass, entry)
+        await hub.async_start()
+        entry.runtime_data = hub
         await hass.config_entries.async_forward_entry_setups(entry, SUMMARY_PLATFORMS)
+        # A profile added, changed or removed: rebuild the profiles.
+        entry.async_on_unload(entry.add_update_listener(_async_reload))
         return True
     if entry.data.get(CONF_KIND) in REMOVED_KINDS:
         # Everything goes through Gaming Hub: following another integration's entity is gone.
@@ -61,6 +74,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) ->
             partial(async_dispatcher_send, hass, SIGNAL_CONSOLES_UPDATED)
         )
     )
+    _ensure_hub(hass)
+    async_dispatcher_send(hass, SIGNAL_CONSOLES_UPDATED)  # the new console joins the totals
     try:
         await consumption.async_apply(hass, entry)
     except Exception:
@@ -71,7 +86,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) ->
 
 async def async_unload_entry(hass: HomeAssistant, entry: GamingHubConfigEntry) -> bool:
     if entry.data.get(CONF_KIND) == SUMMARY:
-        return await hass.config_entries.async_unload_platforms(entry, SUMMARY_PLATFORMS)
+        if unloaded := await hass.config_entries.async_unload_platforms(entry, SUMMARY_PLATFORMS):
+            await entry.runtime_data.async_stop()
+        return unloaded
     platforms = _platforms(entry.runtime_data)
     if unloaded := await hass.config_entries.async_unload_platforms(entry, platforms):
         await entry.runtime_data.async_stop()
@@ -87,3 +104,26 @@ async def _async_options_updated(hass: HomeAssistant, entry: GamingHubConfigEntr
     # Discovery also updates the entry (discovery keys): reload only for new options.
     if entry.options != entry.runtime_data.options:
         await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def _async_reload(hass: HomeAssistant, entry: GamingHubConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+def _ensure_hub(hass: HomeAssistant) -> None:
+    """Create the "Gaming Hub" entry (statistics, household, profiles) with the first console."""
+    if any(
+        entry.data.get(CONF_KIND) == SUMMARY for entry in hass.config_entries.async_entries(DOMAIN)
+    ):
+        return
+    if any(
+        flow["context"].get("source") == SOURCE_IMPORT
+        for flow in hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    ):
+        return
+    hass.async_create_task(
+        hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_IMPORT}, data={CONF_KIND: SUMMARY}
+        ),
+        f"{DOMAIN} create the Gaming Hub entry",
+    )

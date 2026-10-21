@@ -9,9 +9,12 @@ from typing import Any
 from homeassistant.config_entries import (
     SOURCE_RECONFIGURE,
     ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
+    ConfigSubentryFlow,
     OptionsFlow,
+    SubentryFlowResult,
 )
 from homeassistant.const import Platform
 from homeassistant.core import callback
@@ -33,9 +36,11 @@ import voluptuous as vol
 
 from .const import (
     CONF_ACCOUNT_ID,
+    CONF_ACCOUNTS,
     CONF_API_KEY,
     CONF_BLOCK_ENTITY,
     CONF_CLIENT_ID,
+    CONF_CONSOLES,
     CONF_DEVICE_ID,
     CONF_DISCOVERY_PREFIX,
     CONF_ENERGY_SOURCE,
@@ -49,12 +54,15 @@ from .const import (
     CONF_NPSSO,
     CONF_PASSCODE,
     CONF_PIN,
+    CONF_PLAYERS,
     CONF_PORT,
     CONF_POWER_ENTITY,
     CONF_PRESET,
     CONF_REGIST_KEY,
+    CONF_RESTART_ENTITY,
     CONF_RP_KEY,
     CONF_SESSION_TOKEN,
+    CONF_STATE_ENTITY,
     CONF_STEAM_ID,
     CONF_TURN_OFF_ENTITY,
     CONF_TURN_ON_ENTITY,
@@ -63,6 +71,7 @@ from .const import (
     DOMAIN,
     PS5_MQTT_CREDENTIALS,
     REMOVED_KINDS,
+    SUBENTRY_PROFILE,
     SUMMARY,
     ConsoleKind,
     PsnConsole,
@@ -82,6 +91,15 @@ PAIRING_ERRORS = {
     "in_use",
 }
 ACTION_DOMAINS = ["script", "scene", "button", "input_button", "switch", "input_boolean"]
+# Entities that can tell whether a console is on ("Complete" options).
+STATE_DOMAINS = [
+    Platform.SWITCH,
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
+    Platform.MEDIA_PLAYER,
+    "input_boolean",
+    "device_tracker",
+]
 PASSWORD = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 CONF_LINK = "link"  # Nintendo account link pasted during sign-in
 CONF_ACCOUNT = "account"  # Steam account as typed: SteamID64, profile link or custom name
@@ -118,15 +136,29 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_supports_options_flow(cls, config_entry: ConfigEntry) -> bool:
         return config_entry.data.get(CONF_KIND) not in {SUMMARY, *REMOVED_KINDS}
 
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Profiles belong to the "Gaming Hub" entry."""
+        if config_entry.data.get(CONF_KIND) == SUMMARY:
+            return {SUBENTRY_PROFILE: ProfileSubentryFlow}
+        return {}
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
             step_id="user", menu_options=[*(kind.value for kind in ConsoleKind), SUMMARY]
         )
 
+    async def async_step_import(self, import_data: dict[str, Any]) -> ConfigFlowResult:
+        """Created with the first console (see __init__._ensure_hub)."""
+        return await self.async_step_summary()
+
     async def async_step_summary(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Statistics across all the consoles (once)."""
+        """Statistics, household and profiles across all the consoles (once)."""
         await self.async_set_unique_id(SUMMARY)
         self._abort_if_unique_id_configured()
         return self.async_create_entry(title="Gaming Hub", data={CONF_KIND: SUMMARY})
@@ -617,7 +649,7 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class GamingHubOptionsFlow(OptionsFlow):
-    """Links to other entities: power sensor, commands, parental block."""
+    """Power sensor, and entities that complete what the console cannot do itself."""
 
     def __init__(self) -> None:
         self._options: dict[str, Any] = {}
@@ -632,20 +664,34 @@ class GamingHubOptionsFlow(OptionsFlow):
             if user_input.get(CONF_POWER_ENTITY):
                 return await self.async_step_energy()
             return self.async_create_entry(data=user_input)
+        actions = EntitySelector(EntitySelectorConfig(domain=ACTION_DOMAINS))
         fields: dict[Any, Any] = {
             vol.Optional(CONF_POWER_ENTITY): EntitySelector(
                 EntitySelectorConfig(domain=Platform.SENSOR, device_class="power")
             ),
-            vol.Optional(CONF_TURN_ON_ENTITY): EntitySelector(
-                EntitySelectorConfig(domain=ACTION_DOMAINS)
-            ),
-            vol.Optional(CONF_TURN_OFF_ENTITY): EntitySelector(
-                EntitySelectorConfig(domain=ACTION_DOMAINS)
-            ),
-            vol.Optional(CONF_BLOCK_ENTITY): EntitySelector(
-                EntitySelectorConfig(domain=ACTION_DOMAINS)
-            ),
         }
+        # Only what the console cannot do itself (all of it when it is not running now);
+        # a choice made earlier stays shown so it can be cleared.
+        driver = (
+            entry.runtime_data.driver
+            if entry.state is ConfigEntryState.LOADED and hasattr(entry.runtime_data, "driver")
+            else None
+        )
+        missing = {
+            CONF_STATE_ENTITY: driver is None or not driver.native_state,
+            CONF_TURN_ON_ENTITY: driver is None or not driver.can_turn_on,
+            CONF_TURN_OFF_ENTITY: driver is None or not driver.can_turn_off,
+            CONF_RESTART_ENTITY: driver is None or "restart" not in driver.buttons,
+        }
+        for key, shown in missing.items():
+            if shown or entry.options.get(key):
+                selector = (
+                    EntitySelector(EntitySelectorConfig(domain=STATE_DOMAINS))
+                    if key == CONF_STATE_ENTITY
+                    else actions
+                )
+                fields[vol.Optional(key)] = selector
+        fields[vol.Optional(CONF_BLOCK_ENTITY)] = actions
         if entry.data[CONF_KIND] == ConsoleKind.SWITCH:
             fields[vol.Optional(CONF_IMAGE_TEMPLATE)] = str
         suggested = {CONF_IMAGE_TEMPLATE: DEFAULT_SWITCH_IMAGE_TEMPLATE, **entry.options}
@@ -676,4 +722,77 @@ class GamingHubOptionsFlow(OptionsFlow):
         )
         return self.async_show_form(
             step_id="energy", data_schema=self.add_suggested_values_to_schema(schema, suggested)
+        )
+
+
+class ProfileSubentryFlow(ConfigSubentryFlow):
+    """A child: what is theirs among the consoles, accounts and Switch players."""
+
+    def _schema(self) -> vol.Schema:
+        consoles = [
+            entry
+            for entry in self.hass.config_entries.async_entries(DOMAIN)
+            if entry.data.get(CONF_KIND) in {kind.value for kind in ConsoleKind}
+        ]
+
+        def choice(options: list[SelectOptionDict]) -> SelectSelector:
+            return SelectSelector(
+                SelectSelectorConfig(options=options, multiple=True, mode=SelectSelectorMode.LIST)
+            )
+
+        def account(entry: ConfigEntry) -> str:
+            steam = entry.data[CONF_KIND] == ConsoleKind.STEAM
+            return f"{entry.title} ({'Steam' if steam else 'PlayStation Network'})"
+
+        accounts = [
+            SelectOptionDict(value=entry.entry_id, label=account(entry))
+            for entry in consoles
+            if entry.data[CONF_KIND] == ConsoleKind.STEAM or entry.data.get(CONF_NPSSO)
+        ]
+        players = [
+            SelectOptionDict(value=f"{entry.entry_id}|{name}", label=f"{name} ({entry.title})")
+            for entry in consoles
+            if entry.state is ConfigEntryState.LOADED
+            for name in getattr(entry.runtime_data.driver, "players", [])
+        ]
+        fields: dict[Any, Any] = {vol.Required(CONF_NAME): str}
+        if accounts:
+            fields[vol.Optional(CONF_ACCOUNTS)] = choice(accounts)
+        if players:
+            fields[vol.Optional(CONF_PLAYERS)] = choice(players)
+        if consoles:
+            fields[vol.Optional(CONF_CONSOLES)] = choice(
+                [SelectOptionDict(value=entry.entry_id, label=entry.title) for entry in consoles]
+            )
+        return vol.Schema(fields)
+
+    @staticmethod
+    def _data(user_input: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: user_input.get(key, []) for key in (CONF_ACCOUNTS, CONF_PLAYERS, CONF_CONSOLES)
+        }
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(
+                title=user_input[CONF_NAME].strip(), data=self._data(user_input)
+            )
+        return self.async_show_form(step_id="user", data_schema=self._schema())
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        subentry = self._get_reconfigure_subentry()
+        if user_input is not None:
+            return self.async_update_and_abort(
+                self._get_entry(),
+                subentry,
+                title=user_input[CONF_NAME].strip(),
+                data=self._data(user_input),
+            )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                self._schema(), {CONF_NAME: subentry.title, **subentry.data}
+            ),
         )

@@ -31,14 +31,12 @@ async def test_summary_of_all_consoles(
         title="PC",
         data={"kind": "steam", "api_key": "key", "steam_id": STEAM_ID, "name": "PC"},
     )
-    summary = MockConfigEntry(
-        domain=DOMAIN, title="Gaming Hub", unique_id="summary", data={"kind": "summary"}
-    )
     in_game = SteamStatus(STEAM_ID, "Steph", "online", "Halo Infinite", "1240440")
     with patch(STEAM_STATUS, AsyncMock(return_value=in_game)):
-        await _setup(hass, ps5_entry)  # awake, no game
+        await _setup(hass, ps5_entry)  # awake, no game; creates the "Gaming Hub" entry
         await _setup(hass, pc)
-        await _setup(hass, summary)
+        (hub,) = [e for e in hass.config_entries.async_entries(DOMAIN) if e.unique_id == "summary"]
+        assert hub.title == "Gaming Hub"
 
         assert hass.states.get(ON).state == "2"
         assert hass.states.get(ON).attributes["consoles"] == ["PS5 Salon", "PC"]
@@ -65,5 +63,5 @@ async def test_summary_of_all_consoles(
     await hass.config_entries.async_unload(pc.entry_id)
     await hass.async_block_till_done()
     assert hass.states.get(ON).state == "1"
-    assert hass.states.get(GAMES).state == "unknown"
+    assert hass.states.get(GAMES).state == "None"  # never "unknown"
     assert float(hass.states.get(TODAY).state) == 30

@@ -6,6 +6,14 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+# Who plays, as a console knows it: its account (Steam, PSN), a player of its own (Switch
+# user, "player:<nickname>"), or nobody in particular ("console").
+ACCOUNT = "account"
+CONSOLE = "console"
+PLAYER = "player:"
+
+type Periods = tuple[float, float, float]  # seconds today, this week, this month
+
 
 class PowerState(StrEnum):
     """Console power state as the hub sees it."""
@@ -28,7 +36,10 @@ class ConsoleSnapshot:
     attributes: dict[str, Any] = field(default_factory=dict)
     # Seconds played today, this week and this month as counted by the console's maker,
     # used instead of the hub's own count.
-    playtime: tuple[float, float, float] | None = None
+    playtime: Periods | None = None
+    # The same per player when the maker gives it (Nintendo), and who plays now.
+    playtime_by: dict[str, Periods] | None = None
+    playing_as: tuple[str, ...] | None = None
 
     @property
     def is_on(self) -> bool:

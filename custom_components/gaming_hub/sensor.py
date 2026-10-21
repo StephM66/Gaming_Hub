@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -27,12 +28,19 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import CONF_KIND, SUMMARY
+from .const import CONF_KIND, SUMMARY, texts
 from .coordinator import ConsoleData, GamingHubConfigEntry, GamingHubCoordinator
 from .entity import GamingHubEntity
+from .household import GamingHub, OwnerData, ParentalOwner
 from .parental import ParentalStatus
 from .protocols.steam import STATUSES as STEAM_STATUSES
-from .summary import SUMMARY_SENSORS, SummarySensor
+from .summary import (
+    SUMMARY_SENSORS,
+    SummarySensor,
+    start_of_day,
+    start_of_month,
+    start_of_week,
+)
 
 PARALLEL_UPDATES = 0
 
@@ -42,6 +50,8 @@ class HubSensorDescription(SensorEntityDescription):
     value_fn: Callable[[ConsoleData], Any]
     exists_fn: Callable[[GamingHubCoordinator], bool] = lambda _: True
     attributes_fn: Callable[[ConsoleData], dict[str, Any]] | None = None
+    # No value reads "None" in Home Assistant's language instead of "unknown".
+    none_text: bool = False
 
 
 def _attribute(key: str) -> Callable[[ConsoleData], Any]:
@@ -51,8 +61,9 @@ def _attribute(key: str) -> Callable[[ConsoleData], Any]:
 HUB_SENSORS: tuple[HubSensorDescription, ...] = (
     HubSensorDescription(
         key="game",
-        value_fn=lambda data: data.snapshot.title if data.snapshot.is_on else None,
+        value_fn=lambda data: data.snapshot.title if data.snapshot.playing else None,
         attributes_fn=lambda data: {"title_id": data.snapshot.title_id},
+        none_text=True,
     ),
     HubSensorDescription(
         key="power",
@@ -110,9 +121,7 @@ HUB_SENSORS: tuple[HubSensorDescription, ...] = (
         device_class=SensorDeviceClass.DURATION,
         native_unit_of_measurement=UnitOfTime.MINUTES,
         suggested_display_precision=0,
-        value_fn=lambda data: (
-            None if data.parental.remaining is None else round(max(data.parental.remaining, 0), 1)
-        ),
+        value_fn=lambda data: round(max(data.parental.remaining, 0), 1),
     ),
 )
 
@@ -323,7 +332,19 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     if entry.data.get(CONF_KIND) == SUMMARY:
-        async_add_entities(SummarySensor(entry, description) for description in SUMMARY_SENSORS)
+        hub: GamingHub = entry.runtime_data
+        assert hub.household is not None
+        async_add_entities(
+            [
+                *(SummarySensor(entry, description) for description in SUMMARY_SENSORS),
+                *(OwnerSensor(hub.household, d) for d in OWNER_SENSORS if not d.profile_only),
+            ]
+        )
+        for subentry_id, owner in hub.profiles.items():
+            async_add_entities(
+                [OwnerSensor(owner, description) for description in OWNER_SENSORS],
+                config_subentry_id=subentry_id,
+            )
         return
     coordinator = entry.runtime_data
     descriptions = [d for d in HUB_SENSORS if d.exists_fn(coordinator)]
@@ -350,6 +371,8 @@ class HubSensor(GamingHubEntity, SensorEntity):
     @property
     def native_value(self) -> Any:
         value = self.entity_description.value_fn(self.coordinator.data)
+        if value is None and self.entity_description.none_text:
+            return texts(self.hass.config.language)["none"]
         # States are limited to 255 characters; text comes from the consoles.
         return value[:255] if isinstance(value, str) else value
 
@@ -358,3 +381,94 @@ class HubSensor(GamingHubEntity, SensorEntity):
         if self.entity_description.attributes_fn is None:
             return None
         return self.entity_description.attributes_fn(self.coordinator.data)
+
+
+# --- Household ("Gaming Hub" device) and profiles --------------------------------------
+
+
+@dataclass(frozen=True, kw_only=True)
+class OwnerSensorDescription(SensorEntityDescription):
+    value_fn: Callable[[OwnerData], Any]
+    attributes_fn: Callable[[OwnerData], dict[str, Any]] | None = None
+    last_reset_fn: Callable[[], datetime] | None = None
+    none_text: bool = False
+    # The household's play time is on the "Gaming Hub" statistics sensors already.
+    profile_only: bool = False
+
+
+def _owner_playtime(
+    key: str, index: int, unit: str, period_start: Callable[[], datetime]
+) -> OwnerSensorDescription:
+    per, digits = (60, 1) if unit == UnitOfTime.MINUTES else (3600, 2)
+    attribute = ("playtime", "playtime_week", "playtime_month")[index]
+    return OwnerSensorDescription(
+        key=key,
+        device_class=SensorDeviceClass.DURATION,
+        # A sum over consoles: after a restart it grows back from zero (see summary.py).
+        state_class=SensorStateClass.TOTAL,
+        native_unit_of_measurement=unit,
+        suggested_display_precision=0 if unit == UnitOfTime.MINUTES else 1,
+        value_fn=lambda data: round(getattr(data, attribute) / per, digits),
+        attributes_fn=lambda data: {
+            console: round(periods[index] / per, digits)
+            for console, periods in data.consoles.items()
+        },
+        last_reset_fn=period_start,
+        profile_only=True,
+    )
+
+
+OWNER_SENSORS: tuple[OwnerSensorDescription, ...] = (
+    _owner_playtime("playtime_today", 0, UnitOfTime.MINUTES, start_of_day),
+    _owner_playtime("playtime_week", 1, UnitOfTime.HOURS, start_of_week),
+    _owner_playtime("playtime_month", 2, UnitOfTime.HOURS, start_of_month),
+    OwnerSensorDescription(
+        key="playing_on",
+        value_fn=lambda data: (
+            ", ".join(game or console for console, game in data.playing.items())[:255] or None
+        ),
+        attributes_fn=lambda data: dict(data.playing),
+        none_text=True,
+        profile_only=True,
+    ),
+    OwnerSensorDescription(
+        key="parental_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=[status.value for status in ParentalStatus],
+        value_fn=lambda data: data.parental.status.value,
+        attributes_fn=lambda data: {"reason": data.parental.reason and data.parental.reason.value},
+    ),
+    OwnerSensorDescription(
+        key="parental_remaining",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        suggested_display_precision=0,
+        value_fn=lambda data: round(max(data.parental.remaining, 0), 1),
+    ),
+)
+
+
+class OwnerSensor(GamingHubEntity[ParentalOwner], SensorEntity):
+    entity_description: OwnerSensorDescription
+
+    def __init__(self, owner: ParentalOwner, description: OwnerSensorDescription) -> None:
+        super().__init__(owner, description.key)
+        self.entity_description = description
+
+    @property
+    def native_value(self) -> Any:
+        value = self.entity_description.value_fn(self.coordinator.data)
+        if value is None and self.entity_description.none_text:
+            return texts(self.hass.config.language)["none"]
+        return value
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.entity_description.attributes_fn is None:
+            return None
+        return self.entity_description.attributes_fn(self.coordinator.data)
+
+    @property
+    def last_reset(self) -> datetime | None:
+        reset = self.entity_description.last_reset_fn
+        return reset() if reset else None

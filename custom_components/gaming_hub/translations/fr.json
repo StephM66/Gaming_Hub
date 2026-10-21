@@ -11,7 +11,7 @@
           "playstation": "PS4 ou PS3 (compte PlayStation Network)",
           "ps3": "PlayStation 3 modifiée (webMAN MOD)",
           "switch": "Nintendo Switch modifiée (Switch Assistant)",
-          "summary": "Statistiques de toutes les consoles"
+          "summary": "Gaming Hub (statistiques, foyer et profils)"
         }
       },
       "ps5": {
@@ -176,21 +176,26 @@
   "options": {
     "step": {
       "init": {
-        "title": "Liens",
+        "title": "Options",
         "data": {
           "power_entity": "Capteur de puissance (prise connectée)",
           "turn_on_entity": "Allumer avec",
           "turn_off_entity": "Éteindre avec",
           "block_entity": "Blocage parental avec",
-          "image_template": "URL de la jaquette ({title_id})"
+          "image_template": "URL de la jaquette ({title_id})",
+          "state_entity": "État d'après",
+          "restart_entity": "Redémarrer avec"
         },
         "data_description": {
           "power_entity": "Une prise connectée en amont de la console : les capteurs Puissance et Énergie n'existent qu'avec elle.",
-          "turn_on_entity": "Script, bouton ou interrupteur qui remplace la commande native (par exemple HDMI-CEC via la TV).",
-          "turn_off_entity": "Script, bouton ou interrupteur qui remplace la commande native.",
+          "turn_on_entity": "Script, bouton ou interrupteur qui allume la console.",
+          "turn_off_entity": "Script, bouton ou interrupteur qui éteint la console.",
           "block_entity": "Activé à la place de l'extinction quand le temps de jeu est écoulé.",
-          "image_template": "Laisser vide pour ne pas afficher de jaquette."
-        }
+          "image_template": "Laisser vide pour ne pas afficher de jaquette.",
+          "state_entity": "Une entité qui dit si la console est allumée : l'interrupteur du PC, un ping, une entrée HDMI, la puissance d'une prise (allumée au-delà de 5 W)… Elle décide allumée ou éteinte ; la console ou son compte donne toujours le jeu.",
+          "restart_entity": "Script ou bouton qui redémarre la console."
+        },
+        "description": "Seul ce que cette console ne sait pas faire d'elle-même est proposé : une de vos entités le complète. Un interrupteur choisi pour l'état allume et éteint aussi la console."
       },
       "energy": {
         "title": "Consommation existante",
@@ -412,6 +417,9 @@
           "looking_to_trade": "Cherche à échanger",
           "looking_to_play": "Cherche à jouer"
         }
+      },
+      "playing_on": {
+        "name": "Joue sur"
       }
     },
     "switch": {
@@ -437,6 +445,43 @@
     },
     "removed_kind": {
       "message": "Gaming Hub ne suit plus l'entité d'une autre intégration : tout passe par Gaming Hub. Supprimer cette console et l'ajouter à nouveau avec un type pris en charge."
+    }
+  },
+  "config_subentries": {
+    "profile": {
+      "entry_type": "Profil",
+      "initiate_flow": {
+        "user": "Ajouter un profil"
+      },
+      "step": {
+        "user": {
+          "title": "Profil",
+          "description": "Un enfant (ou n'importe qui) dont le temps de jeu est compté sur toutes les consoles. Son temps vient de ses comptes et de ses joueurs Switch ; le reste du temps d'une console va à son joueur principal.",
+          "data": {
+            "name": "Prénom",
+            "accounts": "Ses comptes",
+            "players": "Ses joueurs Switch",
+            "consoles": "Consoles où il joue le plus"
+          },
+          "data_description": {
+            "accounts": "Comptes Steam, et comptes PlayStation Network liés à une console : leur temps de jeu compte pour ce profil.",
+            "players": "Utilisateurs d'une Switch suivie par le compte Nintendo.",
+            "consoles": "Le temps qu'aucun compte ni joueur n'explique va à ce profil."
+          }
+        },
+        "reconfigure": {
+          "title": "Profil",
+          "data": {
+            "name": "Prénom",
+            "accounts": "Ses comptes",
+            "players": "Ses joueurs Switch",
+            "consoles": "Consoles où il joue le plus"
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Profil mis à jour."
+      }
     }
   }
 }

@@ -111,6 +111,26 @@ essais 3 et 4 le mesurent. S'il est long, le jeu en cours affiché arrive en ret
 | 5 | Steam fermé | `off` |
 | 6 | Clé révoquée sur la page des clés Steam | demande d'une nouvelle clé dans Home Assistant |
 
+## Gaming Hub : foyer et profils (0.5.0)
+
+| # | Essai | Attendu |
+|---|---|---|
+| 1 | Ajout de la première console | l'appareil « Gaming Hub » est créé tout seul |
+| 2 | Ajouter un profil sur l'entrée « Gaming Hub » (compte Steam, joueur Switch, console principale) | appareil du profil avec temps de jeu, « Joue sur », contrôle parental |
+| 3 | Jouer sur chaque console rattachée | temps attribué au profil (attributs : part de chaque console) |
+| 4 | Limite du foyer atteinte | message et arrêt sur les consoles en jeu ; événement `scope: household` |
+| 5 | Limite d'un profil atteinte | message et arrêt sur la console où l'enfant joue ; événement `scope: profile` |
+| 6 | Sans jeu en cours | « Jeu en cours » = « Aucun », « Temps de jeu restant » chiffré (jamais inconnu) |
+
+## Compléter une console (0.5.0)
+
+| # | Essai | Attendu |
+|---|---|---|
+| 1 | Options d'une console | seules les fonctions absentes de la console sont proposées |
+| 2 | PC Steam + « État d'après » = interrupteur du PC | éteint / allumé (sans jeu) / en jeu ; allumer et éteindre par l'interrupteur |
+| 3 | Temps de jeu du PC complété | ne compte que le temps en jeu |
+| 4 | « Redémarrer avec » un script | bouton « Redémarrer » ajouté, qui lance le script |
+
 ## Contrôle parental et consommation (une console suffit)
 
 | # | Essai | Attendu |

@@ -21,7 +21,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
 from ..const import CONF_DEVICE_ID, CONF_SESSION_TOKEN
-from ..models import ConsoleSnapshot, PowerState
+from ..models import CONSOLE, PLAYER, ConsoleSnapshot, Periods, PowerState
 from ..protocols.nintendo import (
     GameTime,
     NintendoAuthError,
@@ -48,6 +48,7 @@ def _language(language: str, country: str | None) -> str:
 class NintendoDriver(ConsoleDriver):
     update_interval = timedelta(seconds=60)
     sensors = ("system_version",)
+    native_state = False  # deduced from the play time Nintendo receives
 
     def __init__(self, hass: HomeAssistant, entry) -> None:
         super().__init__(hass, entry)
@@ -68,6 +69,14 @@ class NintendoDriver(ConsoleDriver):
         self._minutes_day: date | None = None
         self._current: GameTime | None = None
         self._grew_at: datetime | None = None
+        # The same per player (Switch user): their minutes today and when they last grew.
+        self._player_minutes: dict[str, float] | None = None
+        self._player_grew_at: dict[str, datetime] = {}
+
+    @property
+    def players(self) -> list[str]:
+        """Switch users seen in the last 31 days, for the profiles."""
+        return sorted({name for day in self._days or () for name in day.players})
 
     async def async_fetch(self) -> ConsoleSnapshot:
         now = dt_util.now()
@@ -85,6 +94,12 @@ class NintendoDriver(ConsoleDriver):
             PowerState.ON if on else PowerState.OFF,
             attributes={"system_version": self._system_version},
             playtime=self._playtime(now.date()),
+            playtime_by=self._playtime_by(now.date()),
+            playing_as=tuple(
+                f"{PLAYER}{name}"
+                for name, grew_at in self._player_grew_at.items()
+                if now - grew_at <= ACTIVE_WINDOW
+            ),
         )
         if today := self._today(now.date()):
             snapshot.attributes["playtime_today"] = {
@@ -136,8 +151,9 @@ class NintendoDriver(ConsoleDriver):
         minutes = {
             title_id: game.minutes for title_id, game in (today.games if today else {}).items()
         }
+        previous_day_is_today = self._minutes_day == now.date()
         if self._minutes is not None:
-            previous = self._minutes if self._minutes_day == now.date() else {}
+            previous = self._minutes if previous_day_is_today else {}
             grown = {
                 title_id: value - previous.get(title_id, 0.0)
                 for title_id, value in minutes.items()
@@ -147,6 +163,31 @@ class NintendoDriver(ConsoleDriver):
                 self._current = today.games[max(grown, key=grown.__getitem__)]
                 self._grew_at = now
         self._minutes, self._minutes_day = minutes, now.date()
+        players = dict(today.players) if today else {}
+        if self._player_minutes is not None:
+            before = self._player_minutes if previous_day_is_today else {}
+            for name, value in players.items():
+                if value > before.get(name, 0.0):
+                    self._player_grew_at[name] = now
+        self._player_minutes = players
+
+    def _playtime_by(self, day: date) -> dict[str, Periods]:
+        """Each player's official play time; what no player accounts for goes to the console."""
+        week, month = week_of(day), month_of(day)
+        totals: dict[str, list[float]] = {}
+        for summary in self._days or ():
+            periods = (
+                summary.day == day,
+                week_of(summary.day) == week,
+                month_of(summary.day) == month,
+            )
+            accounted = 0.0
+            for name, minutes in summary.players.items():
+                accounted += minutes
+                _add(totals.setdefault(f"{PLAYER}{name}", [0.0, 0.0, 0.0]), periods, minutes)
+            rest = max(summary.minutes - accounted, 0.0)
+            _add(totals.setdefault(CONSOLE, [0.0, 0.0, 0.0]), periods, rest)
+        return {key: (today, week, month) for key, (today, week, month) in totals.items()}
 
     def _playtime(self, day: date) -> tuple[float, float, float]:
         days = self._days or []
@@ -157,3 +198,9 @@ class NintendoDriver(ConsoleDriver):
             sum(d.minutes for d in days if week_of(d.day) == week) * 60,
             sum(d.minutes for d in days if month_of(d.day) == month) * 60,
         )
+
+
+def _add(total: list[float], periods: tuple[bool, bool, bool], minutes: float) -> None:
+    for index, included in enumerate(periods):
+        if included:
+            total[index] += minutes * 60

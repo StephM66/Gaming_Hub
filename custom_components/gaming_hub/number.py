@@ -7,8 +7,9 @@ from homeassistant.const import EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .coordinator import GamingHubConfigEntry, GamingHubCoordinator
+from .coordinator import GamingHubConfigEntry
 from .entity import GamingHubEntity
+from .household import parental_owners
 
 PARALLEL_UPDATES = 0
 
@@ -40,13 +41,15 @@ async def async_setup_entry(
     entry: GamingHubConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    async_add_entities(ParentalNumber(entry.runtime_data, description) for description in NUMBERS)
+    for owner, subentry_id in parental_owners(entry):
+        async_add_entities(
+            [ParentalNumber(owner, description) for description in NUMBERS],
+            config_subentry_id=subentry_id,
+        )
 
 
 class ParentalNumber(GamingHubEntity, NumberEntity):
-    def __init__(
-        self, coordinator: GamingHubCoordinator, description: NumberEntityDescription
-    ) -> None:
+    def __init__(self, coordinator, description: NumberEntityDescription) -> None:
         super().__init__(coordinator, description.key)
         self.entity_description = description
 
