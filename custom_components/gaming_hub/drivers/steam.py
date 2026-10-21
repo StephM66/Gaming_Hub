@@ -21,6 +21,9 @@ from .base import ConsoleDriver
 class SteamDriver(ConsoleDriver):
     update_interval = timedelta(seconds=30)
     sensors = ("steam_status",)
+    native_state = False  # Steam does not know whether the computer is on
+    account_console = True
+    counts_game_time_only = True
 
     def __init__(self, hass: HomeAssistant, entry) -> None:
         super().__init__(hass, entry)

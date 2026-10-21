@@ -9,8 +9,9 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .coordinator import GamingHubConfigEntry, GamingHubCoordinator
+from .coordinator import GamingHubConfigEntry
 from .entity import GamingHubEntity
+from .household import parental_owners
 
 PARALLEL_UPDATES = 0
 
@@ -23,13 +24,16 @@ async def async_setup_entry(
     entry: GamingHubConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    async_add_entities(ParentalTime(entry.runtime_data, key) for key in FIELDS)
+    for owner, subentry_id in parental_owners(entry):
+        async_add_entities(
+            [ParentalTime(owner, key) for key in FIELDS], config_subentry_id=subentry_id
+        )
 
 
 class ParentalTime(GamingHubEntity, TimeEntity):
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator: GamingHubCoordinator, key: str) -> None:
+    def __init__(self, coordinator, key: str) -> None:
         super().__init__(coordinator, key)
         self._field = FIELDS[key]
 

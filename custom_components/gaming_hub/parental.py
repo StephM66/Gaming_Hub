@@ -76,9 +76,17 @@ class ParentalSettings:
 class ParentalDecision:
     status: ParentalStatus
     reason: BlockReason | None = None
-    remaining: float | None = None  # minutes before play is blocked, None = unlimited
+    # Minutes of play still allowed today: before the limit or the end of the allowed hours,
+    # else until midnight. Also given while parental control is off (for information).
+    remaining: float = 0.0
     notice: Notice | None = None  # message to deliver now
     enforce: bool = False  # power the console off now
+
+
+def until_midnight(now: datetime) -> float:
+    """Seconds left in the day."""
+    midnight = datetime.combine(now.date() + timedelta(days=1), time(), now.tzinfo)
+    return (midnight - now).total_seconds()
 
 
 def schedule_remaining(now: datetime, start: time, end: time) -> float:
@@ -106,16 +114,17 @@ class ParentalController:
         self._block_notified = False
         self._enforced_at: datetime | None = None
 
-    def _remaining(self, now: datetime, playtime: float) -> tuple[float, BlockReason] | None:
+    def _remaining(self, now: datetime, playtime: float) -> tuple[float, BlockReason | None]:
+        """Seconds of play left and what limits them (None: nothing before midnight)."""
         settings = self.settings
-        limits: list[tuple[float, BlockReason]] = []
+        limits: list[tuple[float, BlockReason | None]] = [(until_midnight(now), None)]
         if settings.daily_limit > 0:
             limits.append((settings.daily_limit * 60 - playtime, BlockReason.LIMIT))
         if settings.start and settings.end and settings.start != settings.end:
             limits.append(
                 (schedule_remaining(now, settings.start, settings.end), BlockReason.SCHEDULE)
             )
-        return min(limits, key=lambda item: item[0]) if limits else None
+        return min(limits, key=lambda item: item[0])
 
     def _clear_block(self) -> None:
         self._blocked_since = self._deadline = self._enforced_at = None
@@ -124,10 +133,11 @@ class ParentalController:
     def evaluate(self, now: datetime, active: bool, playtime: float) -> ParentalDecision:
         """Decide for ``now``; ``active`` is the console being on, ``playtime`` in seconds."""
         settings = self.settings
+        seconds, reason = self._remaining(now, playtime)
         if not settings.enabled:
             self._clear_block()
             self._was_active = active
-            return ParentalDecision(ParentalStatus.DISABLED)
+            return ParentalDecision(ParentalStatus.DISABLED, reason, max(seconds, 0) / 60)
         if self._day != now.date():
             self._day = now.date()
             self._clear_block()
@@ -135,10 +145,9 @@ class ParentalController:
             self._session_warned = False
         self._was_active = active
 
-        if (limit := self._remaining(now, playtime)) is None:
+        if reason is None:
             self._clear_block()
-            return ParentalDecision(ParentalStatus.ALLOWED)
-        seconds, reason = limit
+            return ParentalDecision(ParentalStatus.ALLOWED, None, seconds / 60)
         if seconds > 0:
             self._clear_block()
             minutes = seconds / 60

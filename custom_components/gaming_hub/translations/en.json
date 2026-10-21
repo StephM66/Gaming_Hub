@@ -11,7 +11,7 @@
           "playstation": "PS4 or PS3 (PlayStation Network account)",
           "ps3": "Modified PlayStation 3 (webMAN MOD)",
           "switch": "Modified Nintendo Switch (Switch Assistant)",
-          "summary": "Statistics of all the consoles"
+          "summary": "Gaming Hub (statistics, household and profiles)"
         }
       },
       "ps5": {
@@ -176,21 +176,26 @@
   "options": {
     "step": {
       "init": {
-        "title": "Links",
+        "title": "Options",
         "data": {
           "power_entity": "Power sensor (smart plug)",
           "turn_on_entity": "Turn on with",
           "turn_off_entity": "Turn off with",
           "block_entity": "Parental block with",
-          "image_template": "Artwork URL ({title_id})"
+          "image_template": "Artwork URL ({title_id})",
+          "state_entity": "State from",
+          "restart_entity": "Restart with"
         },
         "data_description": {
           "power_entity": "A smart plug powering the console: the Power and Energy sensors only exist with it.",
-          "turn_on_entity": "Script, button or switch replacing the native command (e.g. HDMI-CEC through the TV).",
-          "turn_off_entity": "Script, button or switch replacing the native command.",
+          "turn_on_entity": "Script, button or switch turning the console on.",
+          "turn_off_entity": "Script, button or switch turning the console off.",
           "block_entity": "Activated instead of turning the console off when play time is over.",
-          "image_template": "Leave empty to disable artwork."
-        }
+          "image_template": "Leave empty to disable artwork.",
+          "state_entity": "An entity telling whether the console is on: a switch powering the computer, a ping, an HDMI input, a smart plug's power (on above 5 W)… It decides on or off; the console or its account still gives the game.",
+          "restart_entity": "Script or button restarting the console."
+        },
+        "description": "Only what this console cannot do by itself is offered: an entity of yours fills it in. A switch chosen as state also turns the console on and off."
       },
       "energy": {
         "title": "Existing consumption",
@@ -412,6 +417,9 @@
           "looking_to_trade": "Looking to trade",
           "looking_to_play": "Looking to play"
         }
+      },
+      "playing_on": {
+        "name": "Playing on"
       }
     },
     "switch": {
@@ -437,6 +445,43 @@
     },
     "removed_kind": {
       "message": "Gaming Hub no longer follows another integration's entity: everything goes through Gaming Hub. Delete this console and add it again with a supported type."
+    }
+  },
+  "config_subentries": {
+    "profile": {
+      "entry_type": "Profile",
+      "initiate_flow": {
+        "user": "Add a profile"
+      },
+      "step": {
+        "user": {
+          "title": "Profile",
+          "description": "A child (or anyone) whose play time is counted across the consoles. Their time comes from their accounts and Switch players; the rest of a console's time goes to its main player.",
+          "data": {
+            "name": "First name",
+            "accounts": "Their accounts",
+            "players": "Their Switch players",
+            "consoles": "Consoles they mostly play"
+          },
+          "data_description": {
+            "accounts": "Steam accounts, and PlayStation Network accounts linked to a console: their play counts for this profile.",
+            "players": "Users of a Switch followed through the Nintendo account.",
+            "consoles": "Time no account or player accounts for goes to this profile."
+          }
+        },
+        "reconfigure": {
+          "title": "Profile",
+          "data": {
+            "name": "First name",
+            "accounts": "Their accounts",
+            "players": "Their Switch players",
+            "consoles": "Consoles they mostly play"
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Profile updated."
+      }
     }
   }
 }

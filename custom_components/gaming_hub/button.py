@@ -18,7 +18,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(ConsoleButton(coordinator, key) for key in coordinator.driver.buttons)
+    async_add_entities(ConsoleButton(coordinator, key) for key in coordinator.button_keys)
 
 
 class ConsoleButton(GamingHubEntity, ButtonEntity):

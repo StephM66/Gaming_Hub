@@ -34,6 +34,12 @@ class ConsoleDriver:
     configuration_url: str | None = None  # console web page, shown on the device
     # On or off as the PlayStation Network account sees it (no local protocol).
     power_from_psn = False
+    # The console tells its real state; otherwise an entity can fill it in (options).
+    native_state = True
+    # The console is an account (Steam): all its play is that account's.
+    account_console = False
+    # Play time counts time in a game, not time on (a computer).
+    counts_game_time_only = False
 
     def __init__(self, hass: HomeAssistant, entry: GamingHubConfigEntry) -> None:
         self.hass = hass

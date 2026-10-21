@@ -18,28 +18,22 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_KIND, DOMAIN, SIGNAL_CONSOLES_UPDATED, SUMMARY
-from .coordinator import ConsoleData
+from .const import DOMAIN, SIGNAL_CONSOLES_UPDATED, texts
+from .coordinator import ConsoleData, running_consoles
 
 type Consoles = list[tuple[str, ConsoleData]]
 
 
 def loaded_consoles(hass: HomeAssistant) -> Consoles:
     """Name and latest data of each console currently running."""
-    return [
-        (entry.title, entry.runtime_data.data)
-        for entry in hass.config_entries.async_entries(DOMAIN)
-        if entry.data.get(CONF_KIND) != SUMMARY
-        and entry.state is ConfigEntryState.LOADED
-        and entry.runtime_data.data is not None
-    ]
+    return [(c.config_entry.title, c.data) for c in running_consoles(hass)]
 
 
 def _total(seconds: Callable[[ConsoleData], float], per: float, digits: int):
@@ -60,16 +54,16 @@ def _games(consoles: Consoles) -> dict[str, str]:
     }
 
 
-def _start_of_day() -> datetime:
+def start_of_day() -> datetime:
     return dt_util.start_of_local_day()
 
 
-def _start_of_week() -> datetime:
+def start_of_week() -> datetime:
     today = dt_util.start_of_local_day()
     return today - timedelta(days=today.weekday())
 
 
-def _start_of_month() -> datetime:
+def start_of_month() -> datetime:
     return dt_util.start_of_local_day().replace(day=1)
 
 
@@ -78,6 +72,7 @@ class SummarySensorDescription(SensorEntityDescription):
     value_fn: Callable[[Consoles], Any]
     attributes_fn: Callable[[Consoles], dict[str, Any]]
     last_reset_fn: Callable[[], datetime] | None = None
+    none_text: bool = False  # no value reads "None" instead of "unknown"
 
 
 def _playtime(
@@ -104,11 +99,9 @@ def _playtime(
 
 
 SUMMARY_SENSORS: tuple[SummarySensorDescription, ...] = (
-    _playtime("playtime_today", lambda data: data.playtime, UnitOfTime.MINUTES, _start_of_day),
-    _playtime("playtime_week", lambda data: data.playtime_week, UnitOfTime.HOURS, _start_of_week),
-    _playtime(
-        "playtime_month", lambda data: data.playtime_month, UnitOfTime.HOURS, _start_of_month
-    ),
+    _playtime("playtime_today", lambda data: data.playtime, UnitOfTime.MINUTES, start_of_day),
+    _playtime("playtime_week", lambda data: data.playtime_week, UnitOfTime.HOURS, start_of_week),
+    _playtime("playtime_month", lambda data: data.playtime_month, UnitOfTime.HOURS, start_of_month),
     SummarySensorDescription(
         key="consoles_on",
         state_class=SensorStateClass.MEASUREMENT,
@@ -121,6 +114,7 @@ SUMMARY_SENSORS: tuple[SummarySensorDescription, ...] = (
         key="games",
         value_fn=lambda consoles: ", ".join(_games(consoles).values())[:255] or None,
         attributes_fn=_games,
+        none_text=True,
     ),
 )
 
@@ -154,7 +148,10 @@ class SummarySensor(SensorEntity):
 
     def _compute(self) -> None:
         consoles = loaded_consoles(self.hass)
-        self._attr_native_value = self.entity_description.value_fn(consoles)
+        value = self.entity_description.value_fn(consoles)
+        if value is None and self.entity_description.none_text:
+            value = texts(self.hass.config.language)["none"]
+        self._attr_native_value = value
         self._attr_extra_state_attributes = self.entity_description.attributes_fn(consoles)
         if self.entity_description.last_reset_fn:
             self._attr_last_reset = self.entity_description.last_reset_fn()

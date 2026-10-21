@@ -61,6 +61,9 @@ CONF_POWER_ENTITY: Final = "power_entity"
 CONF_TURN_ON_ENTITY: Final = "turn_on_entity"
 CONF_TURN_OFF_ENTITY: Final = "turn_off_entity"
 CONF_BLOCK_ENTITY: Final = "block_entity"
+# Features a console does not have, filled in with an entity ("Complete" options).
+CONF_STATE_ENTITY: Final = "state_entity"
+CONF_RESTART_ENTITY: Final = "restart_entity"
 CONF_ENERGY_SOURCE: Final = "energy_source"
 CONF_HIDE_SOURCES: Final = "hide_sources"
 CONF_IMAGE_TEMPLATE: Final = "image_template"
@@ -81,6 +84,18 @@ DEVICE_INFO: Final[dict[str, tuple[str, str]]] = {
     ConsoleKind.STEAM: ("Valve", "Steam"),
 }
 
+# Profile subentries of the "Gaming Hub" entry: what belongs to a child.
+SUBENTRY_PROFILE: Final = "profile"
+CONF_ACCOUNTS: Final = "accounts"  # console entry IDs whose account is the child's
+CONF_PLAYERS: Final = "players"  # "<console entry ID>|<Switch player>"
+CONF_CONSOLES: Final = "consoles"  # console entry IDs where the child is the main player
+
+
+def texts(language: str) -> dict[str, str]:
+    """Messages in Home Assistant's language (French, else English)."""
+    return MESSAGES["fr" if language.startswith("fr") else "en"]
+
+
 # Messages shown on the console and carried by events (fr, else en).
 MESSAGES: Final[dict[str, dict[str, str]]] = {
     "fr": {
@@ -88,11 +103,21 @@ MESSAGES: Final[dict[str, dict[str, str]]] = {
         "blocked_limit": "Temps de jeu du jour écoulé sur {console}.",
         "blocked_schedule": "Hors des heures de jeu autorisées sur {console}.",
         "turning_off": "{console} va s'éteindre.",
+        "warning_for": "Plus que {minutes} min de jeu pour {who}.",
+        "blocked_limit_for": "Temps de jeu du jour écoulé pour {who}.",
+        "blocked_schedule_for": "Hors des heures de jeu autorisées pour {who}.",
+        "household": "le foyer",
+        "none": "Aucun",
     },
     "en": {
         "warning": "{minutes} min of play left on {console}.",
         "blocked_limit": "Daily play time is over on {console}.",
         "blocked_schedule": "Outside of the allowed play hours on {console}.",
         "turning_off": "{console} is turning off.",
+        "warning_for": "{minutes} min of play left for {who}.",
+        "blocked_limit_for": "Daily play time is over for {who}.",
+        "blocked_schedule_for": "Outside of the allowed play hours for {who}.",
+        "household": "the household",
+        "none": "None",
     },
 }
