@@ -227,10 +227,10 @@ les 30 secondes.
 - **Jeux d'autres launchers** (GOG, Epic, émulateurs…) : dans Steam, Jeux → « Ajouter un jeu
   non-Steam à ma bibliothèque », puis les lancer depuis Steam. Le hub affiche alors leur titre
   (sans jaquette : Steam n'en a pas pour ces jeux) et compte leur temps de jeu. Steam ne suit
-  que le programme qu'il lance : pour un jeu qui passe par un autre launcher (Battle.net…), le
-  raccourci doit viser l'exécutable du jeu, sinon Steam le croit terminé dès que le launcher
-  passe la main. Par exemple pour WoW Classic : `WowClassic.exe` avec l'option de lancement
-  `-launcherlogin`, Battle.net ouvert (option connue de la communauté, pas encore vérifiée ici).
+  que le programme qu'il lance : un jeu qui se lance par un autre launcher reste invisible dès
+  que ce launcher passe la main. C'est le cas des jeux **Battle.net** (World of Warcraft, Classic
+  compris) : essayé, ni le raccourci vers Battle.net ni celui vers l'exécutable du jeu ne
+  fonctionnent, le jeu se relance par son launcher.
 - **État du PC** : Steam ne sait pas si l'ordinateur est allumé. Un interrupteur ou une autre
   entité qui le sait peut compléter le compte (voir « Compléter une console ») : PC éteint,
   allumé, ou en jeu, et l'allumage et l'extinction par cet interrupteur.
