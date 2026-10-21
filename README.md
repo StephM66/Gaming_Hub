@@ -230,7 +230,10 @@ les 30 secondes.
   que le programme qu'il lance : un jeu qui se lance par un autre launcher reste invisible dès
   que ce launcher passe la main. C'est le cas des jeux **Battle.net** (World of Warcraft, Classic
   compris) : essayé, ni le raccourci vers Battle.net ni celui vers l'exécutable du jeu ne
-  fonctionnent, le jeu se relance par son launcher.
+  fonctionnent. L'outil communautaire [bnetlauncher](https://github.com/tsukasa/bnetlauncher)
+  est fait pour ça : ajouté à Steam avec le code du jeu (`wow`, `wowclassic`, `wowclassicera`
+  pour Classic Era et Hardcore…), il lance le jeu par Battle.net pour que Steam le suive. Pas
+  encore essayé ici ; pour WoW Classic, il faut parfois cliquer soi-même sur « Jouer ».
 - **État du PC** : Steam ne sait pas si l'ordinateur est allumé. Un interrupteur ou une autre
   entité qui le sait peut compléter le compte (voir « Compléter une console ») : PC éteint,
   allumé, ou en jeu, et l'allumage et l'extinction par cet interrupteur.
