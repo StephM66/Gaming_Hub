@@ -59,7 +59,7 @@ Rien d'autre à installer dans Home Assistant : pas d'App, pas de dépendance Py
 hub remplace PS5-MQTT (App) et intègre lui-même les comptes PlayStation Network, Nintendo,
 Steam et Discord.
 
-> **État : 0.5.1.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
+> **État : 0.6.0.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
 > PlayStation Network, allumage et mise en repos. Steam validé avec un vrai compte : un jeu
 > Steam lancé sur le PC apparaît aussitôt. Tout le reste n'a été testé que contre des consoles
 > et des services simulés : la Switch par le compte Nintendo, la PS4 et la PS3 par le PSN, le
