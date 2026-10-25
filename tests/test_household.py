@@ -143,10 +143,20 @@ async def test_profile_can_be_changed(hass: HomeAssistant, mock_ddp, ps5_entry) 
     await hass.config_entries.subentries.async_configure(result["flow_id"], {"name": "Tom"})
     await hass.async_block_till_done()
     (subentry,) = hub.subentries.values()
+    # A console chosen before, and removed since.
+    hass.config_entries.async_update_subentry(
+        hub, subentry, data={"consoles": [ps5_entry.entry_id, "removed"], "players": ["x|Tom"]}
+    )
     result = await hass.config_entries.subentries.async_init(
         (hub.entry_id, "profile"),
         context={"source": SOURCE_RECONFIGURE, "subentry_id": subentry.subentry_id},
     )
+    suggested = {
+        str(key): key.description["suggested_value"]
+        for key in result["data_schema"].schema
+        if key.description
+    }
+    assert suggested == {"name": "Tom", "consoles": [ps5_entry.entry_id]}
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], {"name": "Tom", "consoles": [ps5_entry.entry_id]}
     )

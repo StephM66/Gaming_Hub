@@ -867,9 +867,15 @@ class ProfileSubentryFlow(ConfigSubentryFlow):
                 title=user_input[CONF_NAME].strip(),
                 data=self._data(user_input),
             )
+        schema = self._schema()
+        # A console removed since (or a Switch not loaded) is no longer a choice: keep it out of
+        # the suggested values, or the form refuses them.
+        suggested: dict[str, Any] = {CONF_NAME: subentry.title}
+        for key, selector in schema.schema.items():
+            if isinstance(selector, SelectSelector):
+                offered = {option["value"] for option in selector.config["options"]}
+                suggested[str(key)] = [v for v in subentry.data.get(str(key)) or () if v in offered]
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=self.add_suggested_values_to_schema(
-                self._schema(), {CONF_NAME: subentry.title, **subentry.data}
-            ),
+            data_schema=self.add_suggested_values_to_schema(schema, suggested),
         )
