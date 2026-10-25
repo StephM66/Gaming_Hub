@@ -31,6 +31,10 @@ def create_driver(hass: HomeAssistant, entry: GamingHubConfigEntry) -> ConsoleDr
         from .steam import SteamDriver
 
         return SteamDriver(hass, entry)
+    if kind is ConsoleKind.DISCORD:
+        from .discord import DiscordDriver
+
+        return DiscordDriver(hass, entry)
     if kind is ConsoleKind.PLAYSTATION:
         from .playstation import PlayStationAccountDriver
 

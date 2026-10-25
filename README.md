@@ -27,7 +27,8 @@ allumage ou extinction quand la console le permet.
 | PlayStation 5 | réseau local, compte PSN facultatif | ✅ allumage, mode repos | ✅ | ✅ via le compte PSN | mesuré par le hub | ✅ |
 | Nintendo Switch, Switch 2 | compte Nintendo (celui de l'application Contrôle parental) | ❌ Nintendo ne le permet pas | déduit : allumée tant que son temps de jeu augmente, avec le délai de Nintendo | déduit des minutes ajoutées par Nintendo | compté par Nintendo (jour, semaine, mois ; par jeu et par joueur) | pas encore (API Nintendo simulée) |
 | PlayStation 4, PlayStation 3 | compte PlayStation Network | ❌ | allumée tant que le compte y est en ligne | ✅ via le compte PSN | mesuré par le hub | pas encore |
-| PC, Steam Deck | compte Steam (clé d'API Steam) | ❌ | en jeu ; Steam ouvert sans jeu = veille | ✅ titre et jaquette | temps passé en jeu, mesuré par le hub | pas encore |
+| PC, Steam Deck | compte Steam (clé d'API Steam) | ❌ | en jeu ; Steam ouvert sans jeu = veille | ✅ titre et jaquette (jeux Steam seulement) | temps passé en jeu, mesuré par le hub | ✅ jeu Steam sur PC |
+| PC, tous launchers | compte Discord (votre propre bot Discord) | ❌ | en jeu ; Discord ouvert sur le PC sans jeu = veille | ✅ tout jeu que Discord reconnaît (Battle.net, GOG, Epic, Steam…), image si le jeu en donne une | temps passé en jeu, mesuré par le hub | pas encore |
 
 Ce qu'une console ne sait pas faire d'elle-même peut être **complété par une de vos entités**
 (options de la console) : l'état, l'allumage, l'extinction, le redémarrage. Par exemple
@@ -55,13 +56,14 @@ modifier une console et ne le recommande pas.
 | Ce que le hub y gagne | voir le tableau détaillé : températures, ventilateur, extinction, redémarrage, message à l'écran… | voir le tableau détaillé : batterie, image de l'écran, extinction, redémarrage, message à l'écran… |
 
 Rien d'autre à installer dans Home Assistant : pas d'App, pas de dépendance Python externe. Le
-hub remplace PS5-MQTT (App) et intègre lui-même les comptes PlayStation Network, Nintendo et
-Steam.
+hub remplace PS5-MQTT (App) et intègre lui-même les comptes PlayStation Network, Nintendo,
+Steam et Discord.
 
-> **État : 0.5.1.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
-> PlayStation Network, allumage et mise en repos. Tout le reste n'a été testé que contre des
-> consoles et des services simulés : la Switch par le compte Nintendo, la PS4 et la PS3 par le
-> PSN, Steam, et les pilotes des consoles modifiées. Voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
+> **État : 0.6.0.** PS5 validée sur une vraie console : état, jeu et jaquette, compte
+> PlayStation Network, allumage et mise en repos. Steam validé avec un vrai compte : un jeu
+> Steam lancé sur le PC apparaît aussitôt. Tout le reste n'a été testé que contre des consoles
+> et des services simulés : la Switch par le compte Nintendo, la PS4 et la PS3 par le PSN, le
+> compte Discord et les pilotes des consoles modifiées. Voir [`docs/TESTS_MATERIEL.md`](docs/TESTS_MATERIEL.md).
 > Pour la PS5, les protocoles sont aussi vérifiés octet par octet contre playactor.
 
 ## Avertissement
@@ -73,8 +75,8 @@ servir ou le reprendre librement (licence MIT-0, sans même obligation de citer 
 - Il s'appuie sur des interfaces non officielles (PlayStation Network, Lecture à distance,
   compte Nintendo, webMAN MOD, Switch Assistant) qui peuvent changer et casser une fonction sans
   préavis.
-- Il pilote des consoles et utilise vos comptes PlayStation Network, Nintendo et Steam : à
-  utiliser à vos risques.
+- Il pilote des consoles et utilise vos comptes PlayStation Network, Nintendo, Steam et un bot
+  Discord : à utiliser à vos risques.
 - Le contrôle parental est une aide, pas une barrière : un enfant peut le contourner (console
   hors réseau, jeu hors ligne…). Le compléter par les contrôles parentaux officiels des consoles.
 - Projet indépendant, sans lien avec Sony, Nintendo ou Microsoft. Les marques citées
@@ -224,13 +226,10 @@ Ce que le hub en tire : en jeu, le titre et la jaquette ; Steam ouvert sans jeu,
 Steam fermé, éteint. Le temps de jeu ne compte que le temps passé en jeu. Le compte est lu toutes
 les 30 secondes.
 
-- **Jeux d'autres launchers** (GOG, Epic, émulateurs…) : dans Steam, Jeux → « Ajouter un jeu
-  non-Steam à ma bibliothèque », puis les lancer depuis Steam. Le hub affiche alors leur titre
-  (sans jaquette : Steam n'en a pas pour ces jeux) et compte leur temps de jeu. Steam ne suit
-  que le programme qu'il lance : pour un jeu qui passe par un autre launcher (Battle.net…), le
-  raccourci doit viser l'exécutable du jeu, sinon Steam le croit terminé dès que le launcher
-  passe la main. Par exemple pour WoW Classic : `WowClassic.exe` avec l'option de lancement
-  `-launcherlogin`, Battle.net ouvert (option connue de la communauté, pas encore vérifiée ici).
+- **Seulement les jeux Steam** : un jeu non-Steam ajouté à la bibliothèque Steam (GOG, Epic,
+  Battle.net, émulateurs…) n'est pas visible. Steam ne le publie plus dans le statut « en jeu »
+  (vérifié : seul « En ligne » apparaît), quel que soit le raccourci ou le launcher. Pour ces
+  jeux, voir « PC, tous launchers (compte Discord) ».
 - **État du PC** : Steam ne sait pas si l'ordinateur est allumé. Un interrupteur ou une autre
   entité qui le sait peut compléter le compte (voir « Compléter une console ») : PC éteint,
   allumé, ou en jeu, et l'allumage et l'extinction par cet interrupteur.
@@ -241,6 +240,43 @@ Limites :
   pas sur lequel on joue.
 - Ni allumage ni extinction par Steam (seulement par une entité qui complète la console).
 - Si Steam refuse la clé (révoquée ou remplacée), Home Assistant en demande une nouvelle.
+
+### PC, tous launchers (compte Discord)
+
+Discord reconnaît lui-même la plupart des jeux PC, quel que soit le launcher (Battle.net, GOG,
+Epic, Steam, émulateurs…), et les affiche « Joue à … » sur les serveurs où se trouve le joueur.
+Gaming Hub les lit par un bot Discord à vous, dans un de ces serveurs. Le hub parle lui-même à
+Discord : rien d'autre à installer, ni sur le PC ni dans Home Assistant.
+
+1. Sur le [portail des développeurs Discord](https://discord.com/developers/applications) :
+   **New Application**, puis **Bot** : **Reset Token** pour copier le jeton du bot, et activer
+   **Presence Intent** (Privileged Gateway Intents). Aucune validation par Discord n'est
+   nécessaire sous 100 serveurs.
+2. **OAuth2 → URL Generator** : cocher **bot**, ouvrir le lien obtenu et ajouter le bot à un
+   serveur où se trouve le joueur. Un serveur privé créé pour l'occasion suffit. Le bot n'a
+   besoin d'aucune permission.
+3. Dans Discord, activer le mode développeur (Paramètres → Avancés), puis clic droit sur le
+   joueur → copier son identifiant.
+4. « PC, tous launchers (compte Discord) » : coller le jeton du bot et l'identifiant du joueur.
+   Le hub vérifie que le Presence Intent est actif et que le bot partage un serveur avec lui.
+
+Ce que le hub en tire : en jeu, le nom du jeu (et une image si le jeu en fournit une à
+Discord) ; Discord ouvert sur un ordinateur sans jeu, « veille » ; sinon, éteint. Le
+changement arrive dès que Discord le publie, sans interrogation régulière. Le temps de jeu ne
+compte que le temps passé en jeu.
+
+Conditions et limites :
+
+- Discord doit être ouvert sur le PC, et le joueur doit partager son activité (paramètres de
+  confidentialité de l'activité de Discord). En mode invisible, il paraît hors ligne.
+- Seuls les jeux que Discord reconnaît sont vus. Un jeu non reconnu peut être ajouté à la main
+  dans les paramètres d'activité de Discord.
+- Discord peut aussi afficher un jeu joué sur une console liée au compte Discord : il compterait
+  alors pour ce PC.
+- Pour un même joueur, Steam et Discord voient tous deux les jeux Steam : n'ajouter que Discord
+  évite de compter deux fois le même temps de jeu.
+- Un bot peut suivre plusieurs joueurs : le hub n'ouvre qu'une connexion par bot.
+- Si Discord refuse le jeton (réinitialisé), Home Assistant en demande un nouveau.
 
 ### PlayStation 3 (console modifiée)
 
@@ -364,6 +400,7 @@ reprise n'a lieu qu'une fois par console.
 | Données de la console | voir le « Tableau détaillé » ; les diagnostics rarement utiles (adresse IP, utilisation totale, démarrages, tension batterie) sont créés désactivés |
 | PlayStation Network, Niveau de trophées, PlayStation Plus | si le compte PSN est associé (PS5, PS4, PS3) |
 | Steam | statut du compte Steam (en ligne, absent, hors ligne…) |
+| Discord | statut du compte Discord (en ligne, inactif, ne pas déranger, hors ligne) |
 
 ## Gaming Hub : statistiques, foyer et profils
 
@@ -382,7 +419,7 @@ Et les réglages du contrôle parental du foyer.
 **Profils.** Sur l'entrée « Gaming Hub » (Paramètres → Appareils et services → Gaming Hub),
 **Ajouter un profil** : un prénom, puis ce qui appartient à l'enfant :
 
-- ses comptes : comptes Steam, et comptes PlayStation Network liés à une console ;
+- ses comptes : comptes Steam et Discord, et comptes PlayStation Network liés à une console ;
 - ses joueurs Switch : utilisateurs d'une Switch suivie par le compte Nintendo ;
 - les consoles où il joue le plus (« joueur principal »).
 
@@ -392,6 +429,7 @@ Le temps de jeu est attribué automatiquement :
 |---|---|---|
 | Switch (compte Nintendo) | le temps de chaque utilisateur de la Switch va au profil qui l'a | officiel, avec le délai de Nintendo |
 | PC, Steam Deck (Steam) | au profil qui a le compte Steam | exact |
+| PC (Discord) | au profil qui a le compte Discord | exact, pour les jeux que Discord reconnaît |
 | PS5, PS4, PS3 avec compte PSN | le temps où le compte PSN lié est en ligne sur la console va au profil qui l'a | bon |
 | Le reste (console sans compte, compte ou joueur non rattaché) | au joueur principal de la console | estimation |
 | Rien de défini | « non attribué » : compte seulement pour le foyer | — |
@@ -412,6 +450,7 @@ ensuite les totaux par jour, semaine ou mois sur la durée.
 custom_components/gaming_hub/
   protocols/   protocoles sans Home Assistant : ddp (PS5), remoteplay (PS5), psn (compte
                PlayStation Network), nintendo (compte Nintendo), steam (compte Steam),
+               discord (compte Discord, par un bot),
                webman (PS3 modifiée), switch_assistant (Switch modifiée)
   drivers/     un pilote par type : ps5, nintendo, steam, playstation (PS4 et PS3 par le
                PSN), ps3 et switch (consoles modifiées)
@@ -450,6 +489,7 @@ python3.13 -m venv .venv && .venv/bin/pip install -r requirements_test.txt
 - `tests/test_protocol_psn.py` : compte PlayStation Network contre une API Sony simulée (jeton NPSSO, renouvellement, présence, trophées).
 - `tests/test_nintendo.py` : compte Nintendo contre une API simulée (connexion, renouvellement), puis jeu déduit, temps de jeu et reconnexion dans Home Assistant.
 - `tests/test_steam.py` : compte Steam contre une API simulée, puis l'appareil dans Home Assistant.
+- `tests/test_discord.py` : présences Discord, API et Gateway simulées (connexion, reprise, jeton refusé), puis l'appareil dans Home Assistant.
 - `tests/test_household.py` : attribution du temps par profil, profils, limite du foyer, consoles complétées par une entité.
 - `tests/test_protocol_ps3_switch.py` : page webMAN reconstituée depuis le source de webMAN MOD, sujets Switch Assistant.
 - `tests/test_logic.py` : contrôle parental, temps de jeu, énergie.

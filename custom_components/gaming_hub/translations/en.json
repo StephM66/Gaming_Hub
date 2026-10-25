@@ -8,6 +8,7 @@
           "ps5": "PlayStation 5",
           "nintendo": "Nintendo Switch or Switch 2 (Nintendo account, no modification)",
           "steam": "PC or Steam Deck (Steam account)",
+          "discord": "PC, any launcher (Discord account)",
           "playstation": "PS4 or PS3 (PlayStation Network account)",
           "ps3": "Modified PlayStation 3 (webMAN MOD)",
           "switch": "Modified Nintendo Switch (Switch Assistant)",
@@ -96,7 +97,7 @@
       },
       "nintendo": {
         "title": "Nintendo account",
-        "description": "Sign in with the Nintendo account that manages the console in the Nintendo Switch Parental Controls app (the console must be linked to it). Open the [Nintendo sign-in]({login_url}), sign in, then right-click the red button of the account (long press on a phone), choose **Copy link** and paste it below.\n\nNintendo gives the games and the play time with a delay, never whether the console is on, and does not allow turning it on or off: the hub counts the console on while its play time grows.",
+        "description": "Sign in with the Nintendo account that manages the console in the Nintendo Switch Parental Controls app (the console must be linked to it). Open the [Nintendo sign-in]({login_url}) and sign in. On the page showing the accounts, **do not tap** the red button of the account (the browser would answer that the address is not valid): right-click it on a computer, long press it on a phone or tablet, then **Copy link**, and paste it below. This sign-in link only works for this window: if it was closed, use the one of the new window.\n\nNintendo gives the games and the play time with a delay, never whether the console is on, and does not allow turning it on or off: the hub counts the console on while its play time grows.",
         "data": {
           "link": "Copied link"
         }
@@ -111,7 +112,7 @@
       },
       "nintendo_reauth": {
         "title": "Nintendo account signed out",
-        "description": "Nintendo refused the session (signed out, password changed…). Open the [Nintendo sign-in]({login_url}), sign in, then right-click the red button of the account (long press on a phone), choose **Copy link** and paste it below.",
+        "description": "Nintendo refused the session (signed out, password changed…). Open the [Nintendo sign-in]({login_url}) and sign in. On the page showing the accounts, **do not tap** the red button of the account (the browser would answer that the address is not valid): right-click it on a computer, long press it on a phone or tablet, then **Copy link**, and paste it below. This sign-in link only works for this window: if it was closed, use the one of the new window.",
         "data": {
           "link": "Copied link"
         }
@@ -133,6 +134,22 @@
         "description": "Steam refused the Web API key (revoked or replaced). Create a new one on [Steam's key page]({key_url}).",
         "data": {
           "api_key": "Steam Web API key"
+        }
+      },
+      "discord": {
+        "title": "Discord account",
+        "description": "Discord recognises most PC games (Steam, Battle.net, GOG, Epic, emulators…) and shows them as \"Playing …\". Gaming Hub reads them through a Discord bot of your own, with nothing else to install.\n\n1. On the [Discord Developer Portal]({portal_url}): New Application, then Bot: Reset Token to copy the token, and turn on **Presence Intent**.\n2. OAuth2 → URL Generator: tick **bot**, open the generated link and add the bot to a server the player is in (a private server is enough).\n3. In Discord, turn on Developer Mode (Settings → Advanced), then right-click the player → copy their user ID.\n4. The player must share their activity (Discord's activity privacy settings) and not be invisible. Discord must be open on the PC.",
+        "data": {
+          "bot_token": "Bot token",
+          "user_id": "Player's Discord user ID",
+          "name": "Name"
+        }
+      },
+      "discord_reauth": {
+        "title": "Discord bot refused",
+        "description": "Discord refuses the bot's token (reset?). On the [Discord Developer Portal]({portal_url}), Bot → Reset Token, then paste the new token.",
+        "data": {
+          "bot_token": "Bot token"
         }
       },
       "playstation": {
@@ -161,7 +178,11 @@
       "nintendo_console_missing": "This console is no longer linked to this Nintendo account.",
       "invalid_api_key": "Steam refuses this key.",
       "steam_account_not_found": "No Steam account matches: paste the profile link.",
-      "steam_unavailable": "Steam did not answer, try again later."
+      "steam_unavailable": "Steam did not answer, try again later.",
+      "invalid_bot_token": "Discord refuses this bot token.",
+      "discord_presence_intent": "The bot's Presence Intent is off: turn it on in the Developer Portal (Bot → Privileged Gateway Intents).",
+      "discord_user_not_found": "No such player, or the bot is in no server they are in.",
+      "discord_unavailable": "Discord did not answer, try again later."
     },
     "abort": {
       "already_configured": "This console is already configured.",
@@ -416,6 +437,15 @@
           "snooze": "Snooze",
           "looking_to_trade": "Looking to trade",
           "looking_to_play": "Looking to play"
+        }
+      },
+      "discord_status": {
+        "name": "Discord",
+        "state": {
+          "online": "Online",
+          "idle": "Idle",
+          "dnd": "Do not disturb",
+          "offline": "Offline"
         }
       },
       "playing_on": {

@@ -39,6 +39,7 @@ async def _menu(hass: HomeAssistant, choice: str):
         "ps5",
         "nintendo",
         "steam",
+        "discord",
         "playstation",
         "ps3",
         "switch",

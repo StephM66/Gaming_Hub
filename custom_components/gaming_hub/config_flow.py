@@ -39,6 +39,7 @@ from .const import (
     CONF_ACCOUNTS,
     CONF_API_KEY,
     CONF_BLOCK_ENTITY,
+    CONF_BOT_TOKEN,
     CONF_CLIENT_ID,
     CONF_CONSOLES,
     CONF_DEVICE_ID,
@@ -66,6 +67,7 @@ from .const import (
     CONF_STEAM_ID,
     CONF_TURN_OFF_ENTITY,
     CONF_TURN_ON_ENTITY,
+    CONF_USER_ID,
     DEFAULT_SWITCH_IMAGE_TEMPLATE,
     DEVICE_INFO,
     DOMAIN,
@@ -77,7 +79,7 @@ from .const import (
     PsnConsole,
 )
 from .consumption import plug_energy_sensor
-from .protocols import ddp, nintendo, remoteplay, steam
+from .protocols import ddp, discord, nintendo, remoteplay, steam
 from .protocols import switch_assistant as sa
 from .protocols.psn import NPSSO_URL, PsnAuthError, PsnClient, PsnError
 from .protocols.webman import DEFAULT_PORT, WebmanClient, WebmanError
@@ -336,6 +338,8 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_nintendo_reauth()
         if entry_data.get(CONF_KIND) == ConsoleKind.STEAM:
             return await self.async_step_steam_reauth()
+        if entry_data.get(CONF_KIND) == ConsoleKind.DISCORD:
+            return await self.async_step_discord_reauth()
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
@@ -592,6 +596,78 @@ class GamingHubConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    # --- Discord account (PC games of any launcher) ---------------------------
+
+    async def _discord_name(self, token: str, player: str) -> tuple[str | None, dict[str, str]]:
+        if (user_id := discord.user_id(player)) is None:
+            return None, {"base": "discord_user_not_found"}
+        client = discord.DiscordClient(async_get_clientsession(self.hass), token)
+        try:
+            return await client.async_check(user_id), {}
+        except discord.DiscordAuthError:
+            return None, {"base": "invalid_bot_token"}
+        except discord.DiscordIntentError:
+            return None, {"base": "discord_presence_intent"}
+        except discord.DiscordUserError:
+            return None, {"base": "discord_user_not_found"}
+        except discord.DiscordError:
+            return None, {"base": "discord_unavailable"}
+
+    async def async_step_discord(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Games of a Discord account, seen by the player's own bot."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            token = user_input[CONF_BOT_TOKEN].strip()
+            name, errors = await self._discord_name(token, user_input[CONF_USER_ID])
+            if name is not None:
+                user_id = user_input[CONF_USER_ID].strip()
+                await self.async_set_unique_id(f"discord_{user_id}")
+                self._abort_if_unique_id_configured(updates={CONF_BOT_TOKEN: token})
+                self._data = {
+                    CONF_KIND: ConsoleKind.DISCORD.value,
+                    CONF_BOT_TOKEN: token,
+                    CONF_USER_ID: user_id,
+                    CONF_NAME: user_input.get(CONF_NAME) or name,
+                }
+                return self._create()
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_BOT_TOKEN): PASSWORD,
+                vol.Required(CONF_USER_ID): str,
+                vol.Optional(CONF_NAME): str,
+            }
+        )
+        return self.async_show_form(
+            step_id="discord",
+            data_schema=self.add_suggested_values_to_schema(
+                schema, {k: v for k, v in (user_input or {}).items() if k != CONF_BOT_TOKEN}
+            ),
+            description_placeholders={"portal_url": discord.PORTAL_URL},
+            errors=errors,
+        )
+
+    async def async_step_discord_reauth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """The bot's token was reset."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            entry = self._get_reauth_entry()
+            token = user_input[CONF_BOT_TOKEN].strip()
+            name, errors = await self._discord_name(token, entry.data[CONF_USER_ID])
+            if name is not None:
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_BOT_TOKEN: token}
+                )
+        return self.async_show_form(
+            step_id="discord_reauth",
+            data_schema=vol.Schema({vol.Required(CONF_BOT_TOKEN): PASSWORD}),
+            description_placeholders={"portal_url": discord.PORTAL_URL},
+            errors=errors,
+        )
+
     # --- Nintendo Switch modified with Switch Assistant ----------------------
 
     async def async_step_switch(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -741,13 +817,14 @@ class ProfileSubentryFlow(ConfigSubentryFlow):
             )
 
         def account(entry: ConfigEntry) -> str:
-            steam = entry.data[CONF_KIND] == ConsoleKind.STEAM
-            return f"{entry.title} ({'Steam' if steam else 'PlayStation Network'})"
+            service = {ConsoleKind.STEAM: "Steam", ConsoleKind.DISCORD: "Discord"}
+            return f"{entry.title} ({service.get(entry.data[CONF_KIND], 'PlayStation Network')})"
 
         accounts = [
             SelectOptionDict(value=entry.entry_id, label=account(entry))
             for entry in consoles
-            if entry.data[CONF_KIND] == ConsoleKind.STEAM or entry.data.get(CONF_NPSSO)
+            if entry.data[CONF_KIND] in (ConsoleKind.STEAM, ConsoleKind.DISCORD)
+            or entry.data.get(CONF_NPSSO)
         ]
         players = [
             SelectOptionDict(value=f"{entry.entry_id}|{name}", label=f"{name} ({entry.title})")
