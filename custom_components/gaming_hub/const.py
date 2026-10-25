@@ -21,6 +21,7 @@ class ConsoleKind(StrEnum):
     PS5 = "ps5"
     NINTENDO = "nintendo"  # Switch and Switch 2 through the Nintendo account, unmodified
     STEAM = "steam"  # PC, Steam Deck… through the Steam account
+    DISCORD = "discord"  # PC games of any launcher, through the Discord account
     PLAYSTATION = "playstation"  # PS4 or PS3 through the PlayStation Network account
     PS3 = "ps3"  # modified PS3 (webMAN MOD)
     SWITCH = "switch"  # modified Switch (Switch Assistant)
@@ -57,6 +58,8 @@ CONF_DEVICE_ID: Final = "device_id"
 CONF_MODEL: Final = "model"
 CONF_API_KEY: Final = "api_key"  # Steam Web API
 CONF_STEAM_ID: Final = "steam_id"
+CONF_BOT_TOKEN: Final = "bot_token"  # the player's own Discord bot
+CONF_USER_ID: Final = "user_id"  # Discord user ID of the player
 
 # Options (every kind)
 CONF_POWER_ENTITY: Final = "power_entity"
@@ -84,6 +87,7 @@ DEVICE_INFO: Final[dict[str, tuple[str, str]]] = {
     ConsoleKind.SWITCH: ("Nintendo", "Switch"),
     ConsoleKind.NINTENDO: ("Nintendo", "Switch"),  # model from the account (Switch 2)
     ConsoleKind.STEAM: ("Valve", "Steam"),
+    ConsoleKind.DISCORD: ("Discord", "Discord"),
 }
 
 # Profile subentries of the "Gaming Hub" entry: what belongs to a child.

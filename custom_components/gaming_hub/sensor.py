@@ -35,6 +35,7 @@ from .coordinator import ConsoleData, GamingHubConfigEntry, GamingHubCoordinator
 from .entity import GamingHubEntity
 from .household import GamingHub, OwnerData, ParentalOwner
 from .parental import ParentalStatus
+from .protocols.discord import STATUSES as DISCORD_STATUSES
 from .protocols.steam import STATUSES as STEAM_STATUSES
 from .summary import (
     SUMMARY_SENSORS,
@@ -305,6 +306,14 @@ DRIVER_SENSORS: dict[str, HubSensorDescription] = {
                 "name": data.snapshot.attributes.get("steam_name"),
                 "avatar": data.snapshot.attributes.get("steam_avatar"),
             },
+        ),
+        # Discord account
+        HubSensorDescription(
+            key="discord_status",
+            device_class=SensorDeviceClass.ENUM,
+            options=list(DISCORD_STATUSES),
+            value_fn=_attribute("discord_status"),
+            attributes_fn=lambda data: {"since": data.snapshot.attributes.get("discord_since")},
         ),
         # PlayStation Network account
         HubSensorDescription(

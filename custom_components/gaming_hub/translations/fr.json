@@ -8,6 +8,7 @@
           "ps5": "PlayStation 5",
           "nintendo": "Nintendo Switch ou Switch 2 (compte Nintendo, sans modification)",
           "steam": "PC ou Steam Deck (compte Steam)",
+          "discord": "PC, tous launchers (compte Discord)",
           "playstation": "PS4 ou PS3 (compte PlayStation Network)",
           "ps3": "PlayStation 3 modifiée (webMAN MOD)",
           "switch": "Nintendo Switch modifiée (Switch Assistant)",
@@ -135,6 +136,22 @@
           "api_key": "Clé d'API Web Steam"
         }
       },
+      "discord": {
+        "title": "Compte Discord",
+        "description": "Discord reconnaît la plupart des jeux PC (Steam, Battle.net, GOG, Epic, émulateurs…) et les affiche « Joue à … ». Gaming Hub les lit par un bot Discord à vous, sans rien installer d'autre.\n\n1. Sur le [portail des développeurs Discord]({portal_url}) : New Application, puis Bot : Reset Token pour copier le jeton, et activer **Presence Intent**.\n2. OAuth2 → URL Generator : cocher **bot**, ouvrir le lien obtenu et ajouter le bot à un serveur où se trouve le joueur (un serveur privé suffit).\n3. Dans Discord, activer le mode développeur (Paramètres → Avancés), puis clic droit sur le joueur → copier son identifiant.\n4. Le joueur doit partager son activité (paramètres de confidentialité de l'activité de Discord) et ne pas être en mode invisible. Discord doit être ouvert sur le PC.",
+        "data": {
+          "bot_token": "Jeton du bot",
+          "user_id": "Identifiant Discord du joueur",
+          "name": "Nom"
+        }
+      },
+      "discord_reauth": {
+        "title": "Bot Discord refusé",
+        "description": "Discord refuse le jeton du bot (réinitialisé ?). Sur le [portail des développeurs Discord]({portal_url}), Bot → Reset Token, puis coller le nouveau jeton.",
+        "data": {
+          "bot_token": "Jeton du bot"
+        }
+      },
       "playstation": {
         "title": "PS4 ou PS3 par le PlayStation Network",
         "description": "Gaming Hub suit la console par son compte PlayStation Network : allumée tant que le compte y est en ligne, avec le jeu en cours. La console doit se connecter au PlayStation Network au démarrage. Pas d'allumage ni d'extinction.\n\nSe connecter sur playstation.com, ouvrir {npsso_url} et copier la valeur de « npsso ».",
@@ -161,7 +178,11 @@
       "nintendo_console_missing": "Cette console n'est plus associée à ce compte Nintendo.",
       "invalid_api_key": "Steam refuse cette clé.",
       "steam_account_not_found": "Aucun compte Steam ne correspond : coller le lien du profil.",
-      "steam_unavailable": "Steam n'a pas répondu, réessayer plus tard."
+      "steam_unavailable": "Steam n'a pas répondu, réessayer plus tard.",
+      "invalid_bot_token": "Discord refuse ce jeton de bot.",
+      "discord_presence_intent": "Le Presence Intent du bot est désactivé : l'activer dans le portail des développeurs (Bot → Privileged Gateway Intents).",
+      "discord_user_not_found": "Joueur introuvable, ou le bot n'est dans aucun serveur où il se trouve.",
+      "discord_unavailable": "Discord n'a pas répondu, réessayer plus tard."
     },
     "abort": {
       "already_configured": "Cette console est déjà configurée.",
@@ -416,6 +437,15 @@
           "snooze": "Somnolent",
           "looking_to_trade": "Cherche à échanger",
           "looking_to_play": "Cherche à jouer"
+        }
+      },
+      "discord_status": {
+        "name": "Discord",
+        "state": {
+          "online": "En ligne",
+          "idle": "Inactif",
+          "dnd": "Ne pas déranger",
+          "offline": "Hors ligne"
         }
       },
       "playing_on": {

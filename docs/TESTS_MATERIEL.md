@@ -112,6 +112,18 @@ essais 3 et 4 le mesurent. S'il est long, le jeu en cours affiché arrive en ret
 | 5 | Steam fermé | `off` |
 | 6 | Clé révoquée sur la page des clés Steam | demande d'une nouvelle clé dans Home Assistant |
 
+## PC, tous launchers (compte Discord)
+
+| # | Essai | Attendu |
+|---|---|---|
+| 1 | Ajout : jeton du bot, identifiant du joueur | entrée créée au nom du joueur ; erreur claire si le Presence Intent est désactivé ou si le bot n'est dans aucun serveur du joueur |
+| 2 | Discord ouvert sur le PC, pas de jeu | `off` avec `power_state` = `standby` ; capteur Discord `online` |
+| 3 | Lancer WoW Classic par Battle.net | `playing` avec le nom affiché par Discord, aussitôt |
+| 4 | Lancer un jeu GOG | `playing` avec son nom |
+| 5 | Temps de jeu | ne compte que le temps en jeu |
+| 6 | Discord fermé, ou joueur invisible | `off` |
+| 7 | Jeton réinitialisé sur le portail | demande d'un nouveau jeton dans Home Assistant |
+
 ## Gaming Hub : foyer et profils (0.5.0)
 
 | # | Essai | Attendu |
