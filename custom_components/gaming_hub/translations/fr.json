@@ -96,7 +96,7 @@
       },
       "nintendo": {
         "title": "Compte Nintendo",
-        "description": "Se connecter avec le compte Nintendo qui gère la console dans l'application Contrôle parental Nintendo Switch (la console doit y être associée). Ouvrir la [connexion Nintendo]({login_url}), se connecter, puis faire un clic droit sur le bouton rouge du compte (appui long sur téléphone), choisir **Copier le lien** et le coller ci-dessous.\n\nNintendo donne les jeux et le temps de jeu avec un délai, jamais si la console est allumée, et ne permet ni de l'allumer ni de l'éteindre : le hub considère la console allumée tant que son temps de jeu augmente.",
+        "description": "Se connecter avec le compte Nintendo qui gère la console dans l'application Contrôle parental Nintendo Switch (la console doit y être associée). Ouvrir la [connexion Nintendo]({login_url}) et se connecter. Sur la page qui montre les comptes, **ne pas toucher** le bouton rouge du compte (le navigateur répondrait que l'adresse n'est pas valide) : clic droit dessus sur ordinateur, appui long sur téléphone ou tablette, puis **Copier le lien**, et le coller ci-dessous. Ce lien de connexion ne vaut que pour cette fenêtre : si elle a été fermée, utiliser celui de la nouvelle.\n\nNintendo donne les jeux et le temps de jeu avec un délai, jamais si la console est allumée, et ne permet ni de l'allumer ni de l'éteindre : le hub considère la console allumée tant que son temps de jeu augmente.",
         "data": {
           "link": "Lien copié"
         }
@@ -111,7 +111,7 @@
       },
       "nintendo_reauth": {
         "title": "Compte Nintendo déconnecté",
-        "description": "Nintendo a refusé la session (déconnexion, mot de passe changé…). Ouvrir la [connexion Nintendo]({login_url}), se connecter, puis faire un clic droit sur le bouton rouge du compte (appui long sur téléphone), choisir **Copier le lien** et le coller ci-dessous.",
+        "description": "Nintendo a refusé la session (déconnexion, mot de passe changé…). Ouvrir la [connexion Nintendo]({login_url}) et se connecter. Sur la page qui montre les comptes, **ne pas toucher** le bouton rouge du compte (le navigateur répondrait que l'adresse n'est pas valide) : clic droit dessus sur ordinateur, appui long sur téléphone ou tablette, puis **Copier le lien**, et le coller ci-dessous. Ce lien de connexion ne vaut que pour cette fenêtre : si elle a été fermée, utiliser celui de la nouvelle.",
         "data": {
           "link": "Lien copié"
         }

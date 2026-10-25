@@ -96,7 +96,7 @@
       },
       "nintendo": {
         "title": "Nintendo account",
-        "description": "Sign in with the Nintendo account that manages the console in the Nintendo Switch Parental Controls app (the console must be linked to it). Open the [Nintendo sign-in]({login_url}), sign in, then right-click the red button of the account (long press on a phone), choose **Copy link** and paste it below.\n\nNintendo gives the games and the play time with a delay, never whether the console is on, and does not allow turning it on or off: the hub counts the console on while its play time grows.",
+        "description": "Sign in with the Nintendo account that manages the console in the Nintendo Switch Parental Controls app (the console must be linked to it). Open the [Nintendo sign-in]({login_url}) and sign in. On the page showing the accounts, **do not tap** the red button of the account (the browser would answer that the address is not valid): right-click it on a computer, long press it on a phone or tablet, then **Copy link**, and paste it below. This sign-in link only works for this window: if it was closed, use the one of the new window.\n\nNintendo gives the games and the play time with a delay, never whether the console is on, and does not allow turning it on or off: the hub counts the console on while its play time grows.",
         "data": {
           "link": "Copied link"
         }
@@ -111,7 +111,7 @@
       },
       "nintendo_reauth": {
         "title": "Nintendo account signed out",
-        "description": "Nintendo refused the session (signed out, password changed…). Open the [Nintendo sign-in]({login_url}), sign in, then right-click the red button of the account (long press on a phone), choose **Copy link** and paste it below.",
+        "description": "Nintendo refused the session (signed out, password changed…). Open the [Nintendo sign-in]({login_url}) and sign in. On the page showing the accounts, **do not tap** the red button of the account (the browser would answer that the address is not valid): right-click it on a computer, long press it on a phone or tablet, then **Copy link**, and paste it below. This sign-in link only works for this window: if it was closed, use the one of the new window.",
         "data": {
           "link": "Copied link"
         }
