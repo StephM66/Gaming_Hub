@@ -22,6 +22,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect, async_dispatcher_send
 from homeassistant.helpers.storage import Store
@@ -55,6 +56,10 @@ from .parental import (
 
 _LOGGER = logging.getLogger(__name__)
 SAVE_DELAY = 10  # seconds; settings change rarely
+# Home Assistant 2026.11 links a device to its parent by the parent's registry ID
+# (`via_device_id`); `via_device`, by identifier, is gone in 2027.8. Earlier versions only
+# know `via_device`.
+VIA_DEVICE_ID = "via_device_id" in getattr(DeviceInfo, "__optional_keys__", ())
 
 
 @dataclass(slots=True)
@@ -193,6 +198,17 @@ class GamingHub:
             manufacturer="Gaming Hub",
             entry_type=DeviceEntryType.SERVICE,
         )
+        # Registered now: each profile's device links to it by its registry ID.
+        hub = dr.async_get(self.hass).async_get_or_create(
+            config_entry_id=entry.entry_id,
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title,
+            manufacturer="Gaming Hub",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+        via: dict[str, Any] = (
+            {"via_device_id": hub.id} if VIA_DEVICE_ID else {"via_device": (DOMAIN, entry.entry_id)}
+        )
         words = texts(self.hass.config.language)
         self.household = ParentalOwner(
             self,
@@ -216,7 +232,7 @@ class GamingHub:
                     name=subentry.title,
                     manufacturer="Gaming Hub",
                     entry_type=DeviceEntryType.SERVICE,
-                    via_device=(DOMAIN, entry.entry_id),
+                    **via,
                 ),
                 ParentalSettings.from_dict(saved.get(subentry_id)),
                 subentry.title,
