@@ -10,6 +10,8 @@ from homeassistant.config_entries import SOURCE_RECONFIGURE, SOURCE_USER
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import device_registry as dr
+import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_capture_events,
@@ -40,6 +42,13 @@ def _console(entry_id: str, by: dict[str, float], playing: tuple[str, ...], game
     return SimpleNamespace(
         config_entry=SimpleNamespace(entry_id=entry_id, title=entry_id), data=data
     )
+
+
+def _device(hass: HomeAssistant, entry_id: str, identifier: str) -> dr.DeviceEntry:
+    devices = dr.async_get(hass)
+    if hasattr(devices, "async_get_device_by_identifier"):  # Home Assistant 2026.11+
+        return devices.async_get_device_by_identifier((DOMAIN, identifier), entry_id)
+    return devices.async_get_device(identifiers={(DOMAIN, identifier)})
 
 
 def test_play_time_goes_to_the_right_profile() -> None:
@@ -73,7 +82,11 @@ def test_play_time_goes_to_the_right_profile() -> None:
 
 
 async def test_profile_and_household_limit(
-    hass: HomeAssistant, mock_ddp, ps5_entry, freezer: FrozenDateTimeFactory
+    hass: HomeAssistant,
+    mock_ddp,
+    ps5_entry,
+    freezer: FrozenDateTimeFactory,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     freezer.move_to(NOON)
     pc = MockConfigEntry(
@@ -98,6 +111,12 @@ async def test_profile_and_household_limit(
         )
         assert result["type"] is FlowResultType.CREATE_ENTRY
         await hass.async_block_till_done()
+        # Léa's device hangs under the "Gaming Hub" device, linked by its registry ID.
+        (subentry_id,) = hub.subentries
+        hub_device = _device(hass, hub.entry_id, hub.entry_id)
+        lea = _device(hass, hub.entry_id, f"{hub.entry_id}_{subentry_id}")
+        assert lea.via_device_id == hub_device.id
+        assert "via_device" not in caplog.text  # no deprecation reported
 
         for _ in range(6):  # 30 minutes on both consoles
             await _tick(hass, freezer, 300)
